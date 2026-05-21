@@ -196,6 +196,57 @@ const soundEngine = {
 
         noise.start(time);
         noise.stop(time + duration);
+    },
+
+    playClap() {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        
+        // 1. 박수소리 합성 (다중 노이즈 펄스 중첩)
+        const duration = 2.5; // 박수 갈채 총 지속 시간 (초)
+        const clapCount = 90; // 중첩될 펄스 횟수
+        
+        for (let i = 0; i < clapCount; i++) {
+            const progress = i / clapCount;
+            // 갈수록 박수의 간격이 살짝 늘어남 (페이드아웃 디케이 변위)
+            const randDelay = progress * duration + (Math.random() * 0.1 - 0.05);
+            const time = now + Math.max(0, randDelay);
+            
+            // 펄스 하나당 길이: 0.04초 ~ 0.07초
+            const pDuration = 0.04 + Math.random() * 0.03;
+            
+            // 볼륨 감쇄: 초반에 강하고 갈수록 감쇠되는 엔벨로프
+            const volume = (0.22 * (1 - progress)) * (0.6 + Math.random() * 0.4);
+            
+            this.playNoise(time, pDuration, volume);
+        }
+
+        // 2. 승리 선언 찬란한 아르페지오 신스 멜로디 팡파레 믹싱
+        const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00]; // C5, E5, G5, C6, E6, G6, C7
+        notes.forEach((freq, idx) => {
+            const time = now + idx * 0.08;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            // 배음을 다채롭게 하기 위해 sine과 triangle 교차
+            osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+            osc.frequency.setValueAtTime(freq, time);
+            
+            // 미세 글라이드 연출
+            osc.frequency.exponentialRampToValueAtTime(freq * 1.015, time + 0.6);
+
+            gain.gain.setValueAtTime(0.2, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.62);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(time);
+            osc.stop(time + 0.62);
+        });
     }
 };
 
@@ -1642,6 +1693,9 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
                     }
                 });
 
+                // [추가] 킵 해제된 활성 주사위들을 수평 한 줄로 완벽하게 자동 정렬
+                arrangeActiveDiceInLine();
+
                 // 3. 상태 정리 및 화면 최종 정돈
                 state.isRolling = false;
                 soundEngine.playDiceHit(); // 최종 착지음
@@ -1650,6 +1704,9 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
                 renderScoreboard();
                 updateRollTrackerUI(); // 롤 횟수 버튼 잠금 해제 체크
 
+                // [추가] 물리 구르기가 정지하고 화면 렌더 완료 후 상위 족보 축하 팝업 및 오디오 연출 트리거
+                checkCombinationCelebrate();
+
                 // 상태 표시 메시지 업데이트
                 if (state.rollCount === 0) {
                     document.getElementById('display-turn-status').innerText = "더 이상 주사위를 굴릴 수 없습니다. 점수를 기록해 주세요.";
@@ -1657,12 +1714,12 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
                     document.getElementById('display-turn-status').innerText = "남은 롤 횟수를 사용하거나 점수를 입력해 주세요.";
                 }
 
-                // 4. AI의 경우 다음 액션으로 체인
+                // 4. AI의 경우 다음 액션으로 체인 (축하 오버레이 팝업을 감상할 시간을 확보하기 위해 딜레이를 2.5초로 연장)
                 const active = activePlayer();
                 if (active.isAI && state.rollCount > 0) {
-                    setTimeout(aiDecideKeep, 1500);
+                    setTimeout(aiDecideKeep, 2500);
                 } else if (active.isAI && state.rollCount === 0) {
-                    setTimeout(aiDecideScore, 1500);
+                    setTimeout(aiDecideScore, 2500);
                 }
             });
 
@@ -1758,6 +1815,9 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
                         }
                     });
 
+                    // [추가] 킵 해제된 활성 주사위들을 수평 한 줄로 완벽하게 자동 정렬
+                    arrangeActiveDiceInLine();
+
                     // 3. 상태 정리 및 화면 최종 정돈
                     state.isRolling = false;
                     soundEngine.playDiceHit(); // 최종 착지음
@@ -1766,6 +1826,9 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
                     renderScoreboard();
                     updateRollTrackerUI(); // 롤 횟수 버튼 잠금 해제 체크
 
+                    // [추가] 물리 구르기가 정지하고 화면 렌더 완료 후 상위 족보 축하 팝업 및 오디오 연출 트리거
+                    checkCombinationCelebrate();
+
                     // 상태 표시 메시지 업데이트
                     if (state.rollCount === 0) {
                         document.getElementById('display-turn-status').innerText = "더 이상 주사위를 굴릴 수 없습니다. 점수를 기록해 주세요.";
@@ -1773,12 +1836,12 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
                         document.getElementById('display-turn-status').innerText = "남은 롤 횟수를 사용하거나 점수를 입력해 주세요.";
                     }
 
-                    // 4. AI의 경우 다음 액션으로 체인
+                    // 4. AI의 경우 다음 액션으로 체인 (축하 오버레이 팝업을 감상할 시간을 확보하기 위해 딜레이를 2.5초로 연장)
                     const active = activePlayer();
                     if (active.isAI && state.rollCount > 0) {
-                        setTimeout(aiDecideKeep, 1500);
+                        setTimeout(aiDecideKeep, 2500);
                     } else if (active.isAI && state.rollCount === 0) {
-                        setTimeout(aiDecideScore, 1500);
+                        setTimeout(aiDecideScore, 2500);
                     }
                 });
 
@@ -2491,4 +2554,110 @@ function escapeHtml(text) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+/* ==========================================
+   NEW: 주사위 롤 종료 후 가로 정중앙 일렬 자동 정렬 헬퍼 함수
+   ========================================== */
+function arrangeActiveDiceInLine() {
+    // 킵되지 않은 활성 주사위의 인덱스 추출
+    const activeIndices = [];
+    state.dice.forEach((d, idx) => {
+        if (!d.kept) {
+            activeIndices.push(idx);
+        }
+    });
+
+    const N = activeIndices.length;
+    if (N === 0) return;
+
+    // 960px * 960px 트레이
+    const diceSize = 105;
+    const gap = 38; // 넉넉하게 38px 간격
+    const trayWidth = 960;
+    
+    // 수평 정렬을 위한 총 가로 폭 계산
+    const totalW = N * diceSize + (N - 1) * gap;
+    // 시작하는 X 좌표 계산 (중앙 정렬 편차 확보)
+    const startX = (trayWidth - totalW) / 2;
+    // 롤링 영역 세로 중심선 (0px ~ 672px 킵라인 상위 구역의 한가운데)
+    const centerY = 336;
+
+    activeIndices.forEach((idx, k) => {
+        const d = state.dice[idx];
+        const x = startX + k * (diceSize + gap) + diceSize / 2;
+        
+        d.randomLeft = `${x}px`;
+        d.randomTop = `${centerY}px`;
+        d.randomAngle = 0; // 정렬 시 삐딱함 없이 완전히 예쁜 수평 리셋
+    });
+}
+
+/* ==========================================
+   NEW: 주사위 롤 정지 직후 최고 족보 판정 및 미래지향적 네온 오버레이 축하 연출 트리거
+   ========================================== */
+function checkCombinationCelebrate() {
+    const diceValues = state.dice.map(d => d.value);
+    const scores = calculateScores(diceValues);
+
+    let comboKey = null;
+    let comboName = "";
+    let comboSub = "";
+    let cssClass = "";
+
+    // 족보의 희소성 및 우선순위 순으로 판별
+    if (scores.yacht === 50) {
+        comboKey = "yacht";
+        comboName = "Yacht!!!";
+        comboSub = "대박! 모든 주사위의 눈이 일치합니다! (50점 획득 가능)";
+        cssClass = "yacht-celebration";
+    } else if (scores.lstraight === 30) {
+        comboKey = "lstraight";
+        comboName = "L. Straight!";
+        comboSub = "짜릿한 5개 연속 눈 완성! (30점 획득 가능)";
+        cssClass = "lstraight-celebration";
+    } else if (scores.sstraight === 15) {
+        comboKey = "sstraight";
+        comboName = "S. Straight!";
+        comboSub = "축하합니다! 4개 연속 눈 완성! (15점 획득 가능)";
+        cssClass = "sstraight-celebration";
+    } else if (scores.fullhouse > 0) {
+        comboKey = "fullhouse";
+        comboName = "Full House!";
+        comboSub = "트리플과 페어의 결합! 완벽한 하우스 완성!";
+        cssClass = "fullhouse-celebration";
+    } else if (scores['4ofkind'] > 0) {
+        comboKey = "4ofkind";
+        comboName = "4 of a Kind!!";
+        comboSub = "강력한 동일 눈 4개 완성! (눈의 총합 점수 획득)";
+        cssClass = "four-celebration";
+    }
+
+    if (comboKey) {
+        const overlay = document.getElementById('celebration-overlay');
+        const textEl = document.getElementById('celebration-text');
+        const subtextEl = document.getElementById('celebration-subtext');
+
+        if (overlay && textEl && subtextEl) {
+            textEl.innerText = comboName;
+            subtextEl.innerText = comboSub;
+
+            // 기존 클래스들 정리 후 족보 커스텀 네온 클래스 추가
+            overlay.className = "celebration-overlay active " + cssClass;
+
+            // Yacht 달성 시 스페셜 무지개빛 폭죽 비 및 합성 대규모 박수 사운드 실행
+            if (comboKey === "yacht") {
+                triggerConfetti(3.5, 45); // 무지개 컨페티
+                soundEngine.playClap(); // 합성 박수 및 상승 신스 아르페지오 팡파레
+            } else {
+                // 다른 족보들은 고풍스럽고 경쾌한 멜로디 Chime 출력
+                soundEngine.playBonus();
+            }
+
+            // 2.2초 동안 연출한 뒤 페이드아웃 후 비활성화
+            setTimeout(() => {
+                overlay.classList.remove('active');
+            }, 2200);
+        }
+    }
 }

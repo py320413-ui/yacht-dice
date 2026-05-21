@@ -1539,3 +1539,126 @@ body {
 .dice-cup.max-power {
     filter: brightness(1.5) drop-shadow(0 0 12px var(--accent-pink));
 }
+
+/* ==========================================
+   Combination Celebration Overlay & Toast Styles
+   ========================================== */
+.celebration-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(10, 5, 20, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.celebration-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.celebration-glass-panel {
+    position: relative;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 
+                inset 0 0 20px rgba(255, 255, 255, 0.05);
+    border-radius: 24px;
+    padding: 40px 70px;
+    text-align: center;
+    transform: scale(0.7) translateY(50px);
+    transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    overflow: hidden;
+    max-width: 90%;
+}
+
+.celebration-overlay.active .celebration-glass-panel {
+    transform: scale(1) translateY(0);
+}
+
+/* 네온 글로우 텍스트 */
+.celebration-text {
+    font-size: 4rem;
+    font-weight: 900;
+    margin: 0 0 10px 0;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    animation: neon-text-glow 1.5s ease-in-out infinite alternate;
+}
+
+.celebration-subtext {
+    font-size: 1.15rem;
+    color: #a9a2b9;
+    margin: 0;
+    font-weight: 500;
+    letter-spacing: 1px;
+}
+
+/* 족보별 커스텀 네온 색상 */
+.celebration-overlay.yacht-celebration .celebration-text {
+    color: #00f5d4;
+    text-shadow: 0 0 10px rgba(0, 245, 212, 0.8),
+                 0 0 20px rgba(0, 245, 212, 0.5),
+                 0 0 40px rgba(0, 245, 212, 0.3),
+                 0 0 80px rgba(0, 245, 212, 0.1);
+}
+.celebration-overlay.lstraight-celebration .celebration-text {
+    color: #ff007f;
+    text-shadow: 0 0 10px rgba(255, 0, 127, 0.8),
+                 0 0 20px rgba(255, 0, 127, 0.5),
+                 0 0 40px rgba(255, 0, 127, 0.3);
+}
+.celebration-overlay.sstraight-celebration .celebration-text {
+    color: #9d4edd;
+    text-shadow: 0 0 10px rgba(157, 78, 221, 0.8),
+                 0 0 20px rgba(157, 78, 221, 0.5),
+                 0 0 40px rgba(157, 78, 221, 0.3);
+}
+.celebration-overlay.fullhouse-celebration .celebration-text {
+    color: #ffb703;
+    text-shadow: 0 0 10px rgba(255, 183, 3, 0.8),
+                 0 0 20px rgba(255, 183, 3, 0.5),
+                 0 0 40px rgba(255, 183, 3, 0.3);
+}
+.celebration-overlay.four-celebration .celebration-text {
+    color: #3a86c8;
+    text-shadow: 0 0 10px rgba(58, 134, 200, 0.8),
+                 0 0 20px rgba(58, 134, 200, 0.5),
+                 0 0 40px rgba(58, 134, 200, 0.3);
+}
+
+/* 회전하는 백그라운드 네온 라이트 레이 연출 */
+.celebration-light-ray {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 70%);
+    animation: rotate-ray 10s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes rotate-ray {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes neon-text-glow {
+    from {
+        transform: scale(0.96);
+    }
+    to {
+        transform: scale(1.04);
+    }
+}
