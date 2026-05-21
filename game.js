@@ -848,55 +848,128 @@ function lerpAngle(current, target, t) {
 
 const physicsEngine = {
     running: false,
-    dicePhysics: [], // Array of { id, x, y, vx, vy, angle, vAngle, radius, mass, isKept }
+    dicePhysics: [], // Array of { id, body: Matter.Body, isKept, cubeRot: {x, y} }
     animationId: null,
     trayWidth: 960,
     trayHeight: 960,
     keepBoundaryY: 672, // 960px * 70% = 672px. Y축 70% 선이 킵 가이드라인 경계
-    radius: 52.5, // 주사위 105px 크기에 맞춰 반지름 52.5px 적용 (시각적 크기와 정확히 일치)
-    friction: 0.96, // 넓어진 광활한 판에 어울리도록 마찰계수 보정 (더욱 찰진 묵직한 감속 제공)
-    bounce: 0.55, // 벽 탄성계수 소폭 상향
-    diceBounce: 0.68, // 주사위끼리 탄성계수 소폭 상향
-    minVelocity: 0.55, // 정지할 최소 속도 임계값 상향 (사실상 멈춘 즉시 즉각적인 결과값 확정 도출)
+    radius: 52.5, // 주사위 반지름 (시각적 크기는 105px)
+    
+    // Matter.js 관련 인스턴스 보관용 속성
+    engine: null,
+    world: null,
+    
+    // 튜닝 파라미터
+    bounce: 0.55,       // 벽면 탄성계수
+    diceBounce: 0.68,   // 주사위끼리 탄성계수
+    minVelocity: 0.55,  // 정지 판단 임계 속도 (선속도 0.55 미만)
     lastHitSoundTime: 0,
 
     init(keptStates, shakePower = 50, launchOrigin = null) {
+        // 1. 기존 Matter.js 세계 초기화 및 정리
+        if (this.engine) {
+            Matter.World.clear(this.world);
+            Matter.Engine.clear(this.engine);
+        }
+        
+        // 2. 엔진 인스턴스 생성 (탑뷰이므로 중력은 y:0 으로 제거)
+        this.engine = Matter.Engine.create({
+            gravity: { x: 0, y: 0 }
+        });
+        this.world = this.engine.world;
         this.dicePhysics = [];
-        // shakePower(0~100)를 발사 속도에 반영
-        const powerScale = 0.6 + (shakePower / 100) * 1.2; // 0.6 ~ 1.8 배율
+
+        // 3. 충돌 효과음 재생 바인딩 (주사위 간 충돌 또는 벽 충돌 시 찰진 사운드 재생)
+        Matter.Events.on(this.engine, 'collisionStart', (event) => {
+            event.pairs.forEach((pair) => {
+                const bA = pair.bodyA;
+                const bB = pair.bodyB;
+                const rvx = bA.velocity.x - bB.velocity.x;
+                const rvy = bA.velocity.y - bB.velocity.y;
+                const speedSq = rvx * rvx + rvy * rvy;
+                if (speedSq > 0.8) {
+                    this.playHitSound();
+                }
+            });
+        });
+
+        // 4. 벽 설치 (트레이 사방 장벽)
+        const wallThickness = 120;
+        const wallOptions = { 
+            isStatic: true, 
+            restitution: this.bounce, // 벽 탄성
+            friction: 0.1 
+        };
+        
+        // 왼쪽 벽
+        const leftWall = Matter.Bodies.rectangle(
+            0 - wallThickness / 2, 
+            this.keepBoundaryY / 2, 
+            wallThickness, 
+            this.keepBoundaryY, 
+            wallOptions
+        );
+        // 오른쪽 벽
+        const rightWall = Matter.Bodies.rectangle(
+            this.trayWidth + wallThickness / 2, 
+            this.keepBoundaryY / 2, 
+            wallThickness, 
+            this.keepBoundaryY, 
+            wallOptions
+        );
+        // 위쪽 벽
+        const topWall = Matter.Bodies.rectangle(
+            this.trayWidth / 2, 
+            0 - wallThickness / 2, 
+            this.trayWidth, 
+            wallThickness, 
+            wallOptions
+        );
+        // 아래쪽 벽 (바닥 - 킵존 경계 672px)
+        const bottomWall = Matter.Bodies.rectangle(
+            this.trayWidth / 2, 
+            this.keepBoundaryY + wallThickness / 2, 
+            this.trayWidth, 
+            wallThickness, 
+            wallOptions
+        );
+
+        Matter.World.add(this.world, [leftWall, rightWall, topWall, bottomWall]);
+
+        // 5. 5개 주사위 바디 생성 및 월드 추가
+        const powerScale = 0.6 + (shakePower / 100) * 1.2;
+        const diceSize = 105;
+
         for (let i = 0; i < 5; i++) {
             const isKept = keptStates[i];
             if (isKept) {
+                // 킵된 주사위는 물리에서 제외하고 호환 더미 객체만 삽입
                 this.dicePhysics.push({
                     id: i,
-                    x: 0, y: 0, vx: 0, vy: 0,
-                    angle: 0, vAngle: 0,
-                    radius: this.radius, mass: 1.0,
-                    isKept: true
+                    body: null,
+                    isKept: true,
+                    cubeRot: { x: 0, y: 0 }
                 });
             } else {
                 let initX, initY, baseVx, baseVy;
                 
                 if (launchOrigin) {
-                    // 컵을 놓아 쏟아지는 구체적인 물리 위치에서 미세 분사하여 발사 (초기 겹침 방지)
                     const angleOffset = (i / 5) * Math.PI * 2;
                     initX = launchOrigin.x + Math.cos(angleOffset) * 18;
                     initY = launchOrigin.y + Math.sin(angleOffset) * 18;
                     
-                    // 트레이 벽 바깥으로 나가는 것을 방어하기 위해 Clamp 적용
+                    // Clamp
                     initX = Math.max(this.radius + 15, Math.min(initX, this.trayWidth - this.radius - 15));
                     initY = Math.max(this.radius + 15, Math.min(initY, this.keepBoundaryY - this.radius - 15));
                     
-                    // 트레이 중앙(480, 480) 부근을 목표로 발사 벡터 연산
                     const targetX = 480;
-                    const targetY = 380; // 살짝 위쪽을 보게 유도
+                    const targetY = 380;
                     const shootAngle = Math.atan2(targetY - initY, targetX - initX) + (Math.random() * 0.3 - 0.15);
                     const speed = (26 + Math.random() * 12) * powerScale;
                     
                     baseVx = Math.cos(shootAngle) * speed;
                     baseVy = Math.sin(shootAngle) * speed;
                 } else {
-                    // 기본 발사 위치: 컵 입구가 쏟아지기 시작하는 맨 우측 부근
                     initX = 900;
                     initY = 80 + (i * 125);
                     baseVx = -(30 + Math.random() * 15) * powerScale;
@@ -904,25 +977,29 @@ const physicsEngine = {
                 }
                 
                 const baseVAngle = ((Math.random() * 100) - 50) * powerScale;
+
+                // 주사위 물리 바디 생성 (완벽한 사각형 105px x 105px 기하학)
+                const bodyOptions = {
+                    restitution: this.diceBounce, // 주사위끼리 탄성계수
+                    friction: 0.02,              // 접촉면 마찰계수
+                    frictionAir: 0.035,          // 공기저항 감속 효과
+                    mass: 1.0
+                };
+                const body = Matter.Bodies.rectangle(initX, initY, diceSize, diceSize, bodyOptions);
+                
+                // 초기 속도 및 각속도 적용 (라디안 단위 변환 필수)
+                Matter.Body.setVelocity(body, { x: baseVx, y: baseVy });
+                Matter.Body.setAngularVelocity(body, baseVAngle * (Math.PI / 180));
+
                 this.dicePhysics.push({
                     id: i,
-                    x: initX,
-                    y: initY, 
-                    vx: baseVx,
-                    vy: baseVy,
-                    angle: Math.random() * 360,
-                    vAngle: baseVAngle,
-                    radius: this.radius,
-                    mass: 1.0,
+                    body: body,
                     isKept: false,
-                    cubeRot: { x: Math.random() * 360, y: Math.random() * 360 } // 초기 임의의 3D 회전각
+                    cubeRot: { x: Math.random() * 360, y: Math.random() * 360 }
                 });
+                
+                Matter.World.add(this.world, body);
             }
-        }
-        
-        // 초기 발사 시점에서 혹시나 겹쳐 있을 수 있으므로 물리 루프 기동 전 충돌 해소를 선제적으로 여러 번 돌려줍니다.
-        for (let k = 0; k < 20; k++) {
-            this.resolveDiceCollisions();
         }
     },
 
@@ -935,35 +1012,35 @@ const physicsEngine = {
             this.update();
             this.render();
 
-            // 킵되지 않은 모든 주사위가 사실상 멈췄는지 체크
+            // 킵되지 않은 모든 주사위 바디가 정지했는지 검증
             let allStopped = true;
             this.dicePhysics.forEach(d => {
-                if (!d.isKept) {
-                    const speed = Math.sqrt(d.vx * d.vx + d.vy * d.vy);
-                    if (speed > this.minVelocity) {
+                if (!d.isKept && d.body) {
+                    const vx = d.body.velocity.x;
+                    const vy = d.body.velocity.y;
+                    const speed = Math.sqrt(vx * vx + vy * vy);
+                    
+                    // 선속도와 각속도가 모두 임계치 이하가 되어야 최종 멈춘 것으로 판정
+                    if (speed > this.minVelocity || Math.abs(d.body.angularVelocity) > 0.008) {
                         allStopped = false;
                     }
                 }
             });
 
             if (allStopped) {
-                // 최종 정지 시점에 모든 3D 큐브 각도를 선결정된 목표 각도에 정확하게 100% 일치시킵니다.
+                // 1. 최종 정지 시점 3D 각도 고정 (눈금 정합성 보장)
                 this.dicePhysics.forEach((d, i) => {
                     if (d.isKept) return;
                     const diceValue = state.dice[i].value;
                     const targetRot = DICE_ROTATIONS[diceValue] || { x: 0, y: 0 };
-                    
                     d.cubeRot.x = targetRot.x;
                     d.cubeRot.y = targetRot.y;
                 });
 
-                // 정지하기 전, 주사위 간 미세하게 겹쳐진 부분이 남아있을 수 있으므로 충돌 완화 루프를 추가로 실행하여 밀어내기를 완벽 완성
-                for (let k = 0; k < 30; k++) {
-                    this.resolveDiceCollisions();
-                }
-                this.render(true); // 보정 좌표 및 최종 정합 각도를 한 치의 오차도 없이 강제 반영
-                
+                // 2. 최종 렌더링 강제 적용하여 오차 0% 정렬 완성
+                this.render(true);
                 this.stop();
+                
                 if (onComplete) onComplete();
             } else {
                 this.animationId = requestAnimationFrame(loop);
@@ -982,174 +1059,84 @@ const physicsEngine = {
     },
 
     update() {
-        const dp = this.dicePhysics;
+        if (!this.engine) return;
+        // Matter.js 엔진 프레임 진행 (60fps 고정 타임스텝)
+        Matter.Engine.update(this.engine, 1000 / 60);
 
-        // 1. 개별 주사위 위치 이동 및 벽면 충돌 연산
-        dp.forEach(d => {
-            if (d.isKept) return;
+        // 추가 벽면 관통 방어 안전 장치 (혹시나 속도가 과도하여 뚫고 나가려는 기현상 방지)
+        this.dicePhysics.forEach(d => {
+            if (d.isKept || !d.body) return;
+            const b = d.body;
+            let corrected = false;
+            let nx = b.position.x;
+            let ny = b.position.y;
 
-            // 마찰 감쇄
-            d.vx *= this.friction;
-            d.vy *= this.friction;
-            d.vAngle *= this.friction;
+            if (nx < this.radius) { nx = this.radius; corrected = true; }
+            if (nx > this.trayWidth - this.radius) { nx = this.trayWidth - this.radius; corrected = true; }
+            if (ny < this.radius) { ny = this.radius; corrected = true; }
+            const bottomLimit = this.keepBoundaryY - this.radius;
+            if (ny > bottomLimit) { ny = bottomLimit; corrected = true; }
 
-            // 속도 적용
-            d.x += d.vx;
-            d.y += d.vy;
-            d.angle += d.vAngle;
-
-            // 좌측 벽 충돌
-            if (d.x < d.radius) {
-                d.x = d.radius;
-                d.vx = -d.vx * this.bounce;
-                d.vAngle += d.vy * 0.3;
-                this.playHitSound();
-            }
-            // 우측 벽 충돌
-            if (d.x > this.trayWidth - d.radius) {
-                d.x = this.trayWidth - d.radius;
-                d.vx = -d.vx * this.bounce;
-                d.vAngle -= d.vy * 0.3;
-                this.playHitSound();
-            }
-            // 상측 벽 충돌
-            if (d.y < d.radius) {
-                d.y = d.radius;
-                d.vy = -d.vy * this.bounce;
-                d.vAngle -= d.vx * 0.3;
-                this.playHitSound();
-            }
-            // 하측 벽 충돌 (킵 존 가이드라인 Y축 70% = 672px를 바닥으로 취급)
-            const bottomLimit = this.keepBoundaryY - d.radius;
-            if (d.y > bottomLimit) {
-                d.y = bottomLimit;
-                d.vy = -d.vy * this.bounce;
-                d.vAngle += d.vx * 0.3;
-                this.playHitSound();
+            if (corrected) {
+                Matter.Body.setPosition(b, { x: nx, y: ny });
+                let vx = b.velocity.x;
+                let vy = b.velocity.y;
+                if (nx === this.radius || nx === this.trayWidth - this.radius) vx = -vx * this.bounce;
+                if (ny === this.radius || ny === bottomLimit) vy = -vy * this.bounce;
+                Matter.Body.setVelocity(b, { x: vx, y: vy });
             }
         });
-
-        // 2. 주사위 상호간 2D 탄성 충돌 연산 (Constraint Solver 기법으로 12회 반복 연산하여 연쇄 겹침 완벽 해소)
-        for (let iter = 0; iter < 12; iter++) {
-            this.resolveDiceCollisions();
-        }
-    },
-
-    // 주사위 간 충돌 및 겹침 해결 로직 분리 및 고도화
-    resolveDiceCollisions() {
-        const dp = this.dicePhysics;
-        for (let i = 0; i < dp.length; i++) {
-            for (let j = i + 1; j < dp.length; j++) {
-                const d1 = dp[i];
-                const d2 = dp[j];
-
-                if (d1.isKept || d2.isKept) continue;
-
-                const dx = d2.x - d1.x;
-                const dy = d2.y - d1.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                
-                // 겹침 원천 방지를 위해 2px의 충돌 마진 안전범퍼를 설계
-                const minDist = d1.radius + d2.radius + 2;
-
-                if (dist < minDist) {
-                    // 충돌 감지 및 겹침 즉시 해소 (Overpenetration Resolution)
-                    const overlap = minDist - dist;
-                    const nx = dx / (dist || 1); // 법선 벡터 X
-                    const ny = dy / (dist || 1); // 법선 벡터 Y
-
-                    // 0.51의 보정 계수를 주어 겹침 상태에서 확실하고 빠르게 튕겨나가도록 강제 밀어내기
-                    d1.x -= nx * overlap * 0.51;
-                    d1.y -= ny * overlap * 0.51;
-                    d2.x += nx * overlap * 0.51;
-                    d2.y += ny * overlap * 0.51;
-
-                    // 밀어내진 좌표가 벽면을 뚫고 지나가 엉키는 Sandwich Effect 방지 (즉시 벽 한계 한정 투사)
-                    [d1, d2].forEach(d => {
-                        if (d.x < d.radius) d.x = d.radius;
-                        if (d.x > this.trayWidth - d.radius) d.x = this.trayWidth - d.radius;
-                        if (d.y < d.radius) d.y = d.radius;
-                        const bottomLimit = this.keepBoundaryY - d.radius;
-                        if (d.y > bottomLimit) d.y = bottomLimit;
-                    });
-
-                    // 상대 속도 계산
-                    const rvx = d1.vx - d2.vx;
-                    const rvy = d1.vy - d2.vy;
-                    const vn = rvx * nx + rvy * ny; // 법선 속도 성분
-
-                    // 두 주사위가 서로 가까워지는 방향일 때 속도 튕김(반사 벡터) 연산
-                    if (vn > 0) {
-                        const impulse = (1 + this.diceBounce) * vn / (1 / d1.mass + 1 / d2.mass);
-
-                        // 속도 벡터 갱신
-                        d1.vx -= nx * impulse * 0.5;
-                        d1.vy -= ny * impulse * 0.5;
-                        d2.vx += nx * impulse * 0.5;
-                        d2.vy += ny * impulse * 0.5;
-
-                        // 충돌 시 비주얼에 생기를 더하는 추가 회전토크
-                        const tx = -ny; // 접선 벡터
-                        const ty = nx;
-                        const vt = rvx * tx + rvy * ty; // 접선 속도 성분
-                        d1.vAngle += vt * 0.12;
-                        d2.vAngle -= vt * 0.12;
-
-                        this.playHitSound();
-                    }
-                }
-            }
-        }
     },
 
     render(isFinal = false) {
         const slots = document.querySelectorAll('.dice-slot');
         this.dicePhysics.forEach((d, i) => {
-            if (d.isKept) return;
+            if (d.isKept || !d.body) return;
             const slot = slots[i];
             if (!slot) return;
 
-            // 렌더 시 확실하게 보이고 작동하도록 조치
             slot.style.display = 'flex';
             slot.style.opacity = '1';
             slot.style.pointerEvents = 'auto';
 
-            // 픽셀 단위 좌표 실시간 반영
-            slot.style.left = `${d.x}px`;
-            slot.style.top = `${d.y}px`;
-            slot.style.transform = `rotateZ(${d.angle}deg)`;
+            // Matter.js body 좌표 및 Z축 회전 각도(라디안 -> 디그리) 대입
+            const x = d.body.position.x;
+            const y = d.body.position.y;
+            const angleDeg = d.body.angle * (180 / Math.PI);
+            
+            slot.style.left = `${x}px`;
+            slot.style.top = `${y}px`;
+            slot.style.transform = `rotateZ(${angleDeg}deg)`;
 
-            // 3D 큐브 와일드 굴림 스핀 적용 (속도에 비례)
+            // 3D 큐브 스핀 연출 연동
             const cube = document.getElementById(`cube-${i}`);
             if (cube) {
                 const diceValue = state.dice[i].value;
                 const targetRot = DICE_ROTATIONS[diceValue] || { x: 0, y: 0 };
 
                 if (isFinal) {
-                    // 최종 정지 프레임: 선결정된 목표 3D 회전각으로 완전히 동정시킴 (튀는 현상 원천 차단)
                     d.cubeRot.x = targetRot.x;
                     d.cubeRot.y = targetRot.y;
                 } else {
-                    const speed = Math.sqrt(d.vx * d.vx + d.vy * d.vy);
+                    const vx = d.body.velocity.x;
+                    const vy = d.body.velocity.y;
+                    const speed = Math.sqrt(vx * vx + vy * vy);
                     const rollSpeedFactor = 3.5;
-                    
+
                     if (speed >= 7.0) {
-                        // 1) 빠르게 굴러가는 동안에만 자유로운 무작위 스핀 축적
-                        d.cubeRot.x += d.vy * rollSpeedFactor;
-                        d.cubeRot.y += d.vx * rollSpeedFactor;
+                        d.cubeRot.x += vy * rollSpeedFactor;
+                        d.cubeRot.y += vx * rollSpeedFactor;
                     } else {
-                        // 2) 속도가 7.0 이하로 줄어드는 감속 페이즈에서는 무작위 스핀 가산을 극도로 차단
-                        // 부드러운 감속 미끄러짐을 표현하기 위한 극미량(5%)의 스핀 관성만 축적
-                        d.cubeRot.x += d.vy * rollSpeedFactor * 0.05;
-                        d.cubeRot.y += d.vx * rollSpeedFactor * 0.05;
-                        
-                        // 정지 임계값인 0.55에 도달할수록 수렴 가중치 t를 점진적으로 매끄럽게 늘려 강력한 정렬 수렴 보장
-                        const t = Math.max(0.08, Math.min(0.42, (7.0 - speed) / (7.0 - 0.55)));
+                        d.cubeRot.x += vy * rollSpeedFactor * 0.05;
+                        d.cubeRot.y += vx * rollSpeedFactor * 0.05;
+
+                        // 정지할수록 타겟 각도에 강력하게 정렬 Lerp
+                        const t = Math.max(0.08, Math.min(0.42, (7.0 - speed) / (7.0 - this.minVelocity)));
                         d.cubeRot.x = lerpAngle(d.cubeRot.x, targetRot.x, t);
                         d.cubeRot.y = lerpAngle(d.cubeRot.y, targetRot.y, t);
                     }
                 }
-                
+
                 cube.style.transform = `rotateX(${d.cubeRot.x}deg) rotateY(${d.cubeRot.y}deg)`;
             }
         });
@@ -1157,7 +1144,6 @@ const physicsEngine = {
 
     playHitSound() {
         const now = Date.now();
-        // 타격음 겹침 디바운스 (85ms 간격 제약)
         if (now - this.lastHitSoundTime > 85) {
             soundEngine.playDiceHit();
             this.lastHitSoundTime = now;
