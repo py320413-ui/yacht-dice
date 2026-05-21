@@ -1293,7 +1293,7 @@ function getDifficultyLabel(diff) {
 
 function hideLobbyShowGame() {
     document.getElementById('lobby-view').style.display = 'none';
-    document.getElementById('game-view').style.display = 'grid';
+    document.getElementById('game-view').style.display = 'flex';
     // Hide or show online side controls
     if (state.gameMode === 'online') {
         document.getElementById('online-room-info').style.display = 'flex';
