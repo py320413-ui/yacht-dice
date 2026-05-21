@@ -118,84 +118,65 @@
          2. IN-GAME BOARD VIEW
          ========================================== -->
     <div id="game-view">
-        <!-- 최상단 전면 헤더 (턴 및 롤 횟수 표시) -->
-        <header class="glass-panel game-header">
-            <div class="turn-indicator">
+        <!-- 최상단 전면 헤더 (로비 나가기, 턴 정보, 온라인 정보 및 롤 횟수 통합 대칭 헤더) -->
+        <header class="glass-panel game-header" style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+            <!-- [왼쪽] 로비로 나가기 버튼 이관 -->
+            <div class="header-left-actions">
+                <button class="neon-btn" id="btn-exit-game" style="background: rgba(255, 0, 127, 0.08); border-color: var(--accent-pink); padding: 8px 18px; font-size: 0.85rem;">
+                    🏳️ 나가기
+                </button>
+            </div>
+
+            <!-- [중앙] 턴 상태 표시기 -->
+            <div class="turn-indicator" style="text-align: center; flex: 1;">
                 <span class="turn-name" id="display-current-turn">플레이어의 턴</span>
                 <span class="turn-status" id="display-turn-status">주사위를 굴려주세요.</span>
             </div>
-            <div class="roll-tracker">
-                <span>ROLL</span>
-                <div class="dots" id="roll-dots">
-                    <div class="dot active"></div>
-                    <div class="dot active"></div>
-                    <div class="dot active"></div>
+
+            <!-- [우측] 온라인 방 정보 및 롤 트래커 통합 블록 -->
+            <div class="header-right-actions" style="display: flex; align-items: center; gap: 20px;">
+                <!-- 온라인 방 정보 패널 이관 (온라인 모드일 때만 노출) -->
+                <div class="network-room-header-badge" id="online-room-info" style="display: none; align-items: center; gap: 8px; background: rgba(0, 0, 0, 0.25); padding: 6px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700;">ROOM</span>
+                        <span class="code" id="display-room-code" style="font-family: monospace; font-size: 0.95rem; font-weight: 700; color: var(--accent-cyan); letter-spacing: 0.5px;">------</span>
+                    </div>
+                    <button id="btn-copy-room-code" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); cursor: pointer; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; transition: all 0.2s ease;">복사 📋</button>
+                    <div style="font-size: 0.72rem; color: var(--accent-cyan); font-weight: 600; padding: 2px 6px; background: rgba(0,245,212,0.1); border-radius: 4px;" id="network-status-text">
+                        1/4
+                    </div>
+                    <!-- 강제 시작 버튼 (헤더 내부 밀착 배치) -->
+                    <button class="neon-btn cyan" id="btn-force-start" style="display: none; padding: 4px 10px; font-size: 0.72rem;">
+                        강제 시작
+                    </button>
+                </div>
+
+                <!-- 롤 횟수 트래커 -->
+                <div class="roll-tracker" style="margin-left: auto;">
+                    <span>ROLL</span>
+                    <div class="dots" id="roll-dots">
+                        <div class="dot active"></div>
+                        <div class="dot active"></div>
+                        <div class="dot active"></div>
+                    </div>
                 </div>
             </div>
         </header>
 
-        <!-- 핵심 워크스페이스 가로 4분할 레이아웃 -->
+        <!-- 핵심 워크스페이스 가로 3분할 레이아웃 (실제 2단 대칭 구성) -->
         <div class="game-workspace">
-            <!-- 컬럼 1: 게임 로그 및 채팅 (가장 왼쪽) -->
-            <aside class="sidebar-panel">
-                <!-- Room Info (Visible in Online Mode) -->
-                <section class="glass-panel network-room-info" id="online-room-info" style="display: none;">
-                    <div class="room-badge">
-                        <div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted);">ROOM CODE</div>
-                            <span class="code" id="display-room-code">------</span>
-                        </div>
-                        <button id="btn-copy-room-code">복사 📋</button>
-                    </div>
-                    <div class="peer-list" id="display-peers">
-                        <!-- Peers will be listed here -->
-                    </div>
-                    <div style="font-size: 0.72rem; color: var(--accent-cyan); text-align: center; margin-top: 4px;" id="network-status-text">
-                        입장을 대기하고 있습니다... (1/4)
-                    </div>
-                    <button class="neon-btn cyan" id="btn-force-start" style="display: none; padding: 8px 16px; font-size: 0.8rem; justify-content: center; width: 100%;">
-                        게임 강제 시작
-                    </button>
-                </section>
-
-                <!-- Logs & Chat Container -->
-                <section class="glass-panel panel-tab-container">
-                    <div class="tab-header">
-                        <button class="tab-btn active" data-tab="tab-logs">게임 로그</button>
-                        <button class="tab-btn" data-tab="tab-chat" id="tab-chat-btn">채팅/이모티콘</button>
-                    </div>
-                    <div class="tab-content">
-                        <!-- Tab: Game Logs -->
-                        <div class="tab-pane active" id="tab-logs">
-                            <div id="log-messages">
-                                <div class="log-entry system-log">야추 다이스 방에 오신 것을 환영합니다!</div>
-                            </div>
-                        </div>
-
-                        <!-- Tab: Live Chat -->
-                        <div class="tab-pane" id="tab-chat">
-                            <div id="chat-messages">
-                                <!-- Messages -->
-                            </div>
-                            <div class="emoji-bar">
-                                <button class="emoji-btn" data-emoji="😀">😀</button>
-                                <button class="emoji-btn" data-emoji="🔥">🔥</button>
-                                <button class="emoji-btn" data-emoji="🎲">🎲</button>
-                                <button class="emoji-btn" data-emoji="🎉">🎉</button>
-                                <button class="emoji-btn" data-emoji="😭">😭</button>
-                                <button class="emoji-btn" data-emoji="😱">😱</button>
-                            </div>
-                            <div class="chat-input-bar">
-                                <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." maxlength="40">
-                                <button class="neon-btn cyan" id="btn-send-chat" style="padding: 8px 14px; font-size: 0.85rem;">전송</button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <button class="neon-btn" id="btn-exit-game" style="background: rgba(255, 0, 127, 0.1); border-color: var(--accent-pink); width: 100%; justify-content: center;">
-                    🏳️ 로비로 나가기
-                </button>
+            <!-- 컬럼 1: 게임 로그 및 채팅 (JS 에러 방지를 위해 display: none 상태로 안전 보존) -->
+            <aside class="sidebar-panel" style="display: none !important;">
+                <!-- JS 참조 유지용 빈 태그 및 피어 목록 -->
+                <div class="peer-list" id="display-peers" style="display: none;"></div>
+                <button id="tab-chat-btn"></button>
+                <button class="tab-btn" data-tab="tab-logs"></button>
+                <div class="tab-content" style="display: none;">
+                    <div id="log-messages"></div>
+                    <div id="chat-messages"></div>
+                    <input type="text" id="chat-input">
+                    <button id="btn-send-chat"></button>
+                </div>
             </aside>
 
             <!-- 컬럼 2: 점수판 (Scoreboard Panel) -->
@@ -355,6 +336,16 @@
                     
                     <!-- 흔들기 가이드 텍스트 -->
                     <div class="shake-guide-text" id="shake-guide-text">꾹 누른 채 흔들어 던지세요! 🎲</div>
+                    
+                    <!-- 항시 활성화된 네온 유리모피즘 스타일 리액션 이모티콘 바 -->
+                    <div class="emoji-bar" style="display: flex; justify-content: center; gap: 8px; margin: 10px 0 15px 0; width: 100%; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); padding: 8px; border-radius: 12px;">
+                        <button class="emoji-btn" data-emoji="😀">😀</button>
+                        <button class="emoji-btn" data-emoji="🔥">🔥</button>
+                        <button class="emoji-btn" data-emoji="🎲">🎲</button>
+                        <button class="emoji-btn" data-emoji="🎉">🎉</button>
+                        <button class="emoji-btn" data-emoji="😭">😭</button>
+                        <button class="emoji-btn" data-emoji="😱">😱</button>
+                    </div>
                     
                     <div class="dice-controls">
                         <button class="neon-btn cyan" id="btn-roll" style="width: 100%; justify-content: center; padding: 14px 0; font-size: 1.1rem;">

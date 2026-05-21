@@ -320,6 +320,31 @@ body {
     border-radius: 20px;
 }
 
+.header-left-actions {
+    display: flex;
+    align-items: center;
+    min-width: 150px;
+}
+
+.header-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    min-width: 150px;
+    justify-content: flex-end;
+}
+
+.network-room-header-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 10px rgba(0, 245, 212, 0.1);
+}
+
 /* 가로 4분할 핵심 워크스페이스 */
 .game-workspace {
     display: flex;
@@ -931,7 +956,7 @@ body {
 .score-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 500px;
+    min-width: 420px;
 }
 
 .score-table th,

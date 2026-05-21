@@ -1295,14 +1295,20 @@ function hideLobbyShowGame() {
     document.getElementById('lobby-view').style.display = 'none';
     document.getElementById('game-view').style.display = 'flex';
     // Hide or show online side controls
-    if (state.gameMode === 'online') {
-        document.getElementById('online-room-info').style.display = 'flex';
-        document.getElementById('tab-chat-btn').style.display = 'block';
-    } else {
-        document.getElementById('online-room-info').style.display = 'none';
-        document.getElementById('tab-chat-btn').style.display = 'none';
-        // Force Game Logs tab active
-        document.querySelector('.tab-btn[data-tab="tab-logs"]').click();
+    const roomInfo = document.getElementById('online-room-info');
+    if (roomInfo) {
+        roomInfo.style.display = (state.gameMode === 'online') ? 'flex' : 'none';
+    }
+    
+    const chatBtn = document.getElementById('tab-chat-btn');
+    if (chatBtn) {
+        chatBtn.style.display = (state.gameMode === 'online') ? 'block' : 'none';
+    }
+    
+    if (state.gameMode !== 'online') {
+        // Force Game Logs tab active if exist
+        const logTab = document.querySelector('.tab-btn[data-tab="tab-logs"]');
+        if (logTab) logTab.click();
     }
 }
 
