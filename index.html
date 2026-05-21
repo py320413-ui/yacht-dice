@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>야추 다이스 | Neon Yacht Dice 3D</title>
+    <meta name="description" content="실시간 멀티플레이와 스마트 AI 대전이 가능한 최고의 3D 야추 다이스 보드게임">
+    <link rel="stylesheet" href="style.css">
+    <!-- PeerJS for P2P Multiplayer -->
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <!-- Canvas-Confetti for Yacht celebration -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- ==========================================
+         1. LOBBY VIEW
+         ========================================== -->
+    <main id="lobby-view" class="glass-panel">
+        <div class="title-container">
+            <h1>YACHT DICE</h1>
+            <p class="subtitle">Premium 3D Multi-Mode Board Game</p>
+        </div>
+
+        <section class="mode-selector">
+            <div class="mode-card active" data-mode="solo" id="mode-solo">
+                <div class="icon">🤖</div>
+                <h3>AI 솔로 대전</h3>
+                <p>영리한 AI 봇과 맞서는 짜릿한 1대1 승부</p>
+            </div>
+            <div class="mode-card" data-mode="local" id="mode-local">
+                <div class="icon">👥</div>
+                <h3>로컬 플레이</h3>
+                <p>하나의 기기에서 최대 4명이 차례로 대결</p>
+            </div>
+            <div class="mode-card" data-mode="online" id="mode-online">
+                <div class="icon">🌐</div>
+                <h3>온라인 멀티</h3>
+                <p>방 코드로 친구를 초대해 실시간 P2P 매치</p>
+            </div>
+        </section>
+
+        <!-- Dynamic Configuration Panels -->
+        <!-- AI Setup -->
+        <section id="panel-solo" class="setup-panel" style="display: block;">
+            <h2>🤖 AI 대전 설정</h2>
+            <div class="setup-group">
+                <label for="ai-difficulty">AI 난이도 선택</label>
+                <select id="ai-difficulty">
+                    <option value="easy">쉬움 (초보자용, 실수가 잦은 AI)</option>
+                    <option value="normal" selected>보통 (평균적인 판단의 AI)</option>
+                    <option value="hard">어려움 (치밀한 기댓값 계산의 AI)</option>
+                </select>
+            </div>
+            <div class="setup-group">
+                <label for="solo-player-name">내 이름</label>
+                <input type="text" id="solo-player-name" placeholder="플레이어 1" maxlength="8" value="플레이어">
+            </div>
+        </section>
+
+        <!-- Local Multiplayer Setup -->
+        <section id="panel-local" class="setup-panel">
+            <h2>👥 로컬 플레이 설정 (2~4인)</h2>
+            <div class="setup-group">
+                <label for="local-player-count">참가 인원</label>
+                <select id="local-player-count">
+                    <option value="2" selected>2명</option>
+                    <option value="3">3명</option>
+                    <option value="4">4명</option>
+                </select>
+            </div>
+            <div class="setup-group" id="local-names-container">
+                <div class="player-entry">
+                    <span>1번 주자</span>
+                    <input type="text" class="local-name-input" data-idx="0" value="플레이어 1" maxlength="8">
+                </div>
+                <div class="player-entry">
+                    <span>2번 주자</span>
+                    <input type="text" class="local-name-input" data-idx="1" value="플레이어 2" maxlength="8">
+                </div>
+            </div>
+        </section>
+
+        <!-- Online Multiplayer Setup -->
+        <section id="panel-online" class="setup-panel">
+            <h2>🌐 온라인 P2P 멀티플레이 설정</h2>
+            <div class="setup-group">
+                <label for="online-player-name">내 닉네임</label>
+                <input type="text" id="online-player-name" placeholder="플레이어" maxlength="8" value="도전자">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+                <button class="neon-btn cyan" id="btn-create-room">방 만들기 (Host)</button>
+                <button class="neon-btn" id="btn-join-room-trigger">방 참가하기 (Client)</button>
+            </div>
+
+            <!-- Join room input (hidden initially) -->
+            <div id="join-room-inputs" class="setup-group" style="display: none; margin-top: 16px; animation: slideDown 0.3s ease;">
+                <label for="join-room-code">입장할 방 코드 (Room Code)</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="join-room-code" placeholder="방 코드를 입력하세요" style="flex: 1;">
+                    <button class="neon-btn cyan" id="btn-submit-join" style="padding: 10px 16px;">확인</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Global Action Button -->
+        <div>
+            <button class="neon-btn" id="btn-start-game" style="font-size: 1.1rem; padding: 14px 45px; width: 100%;">
+                🎮 게임 시작
+            </button>
+        </div>
+    </main>
+
+    <!-- ==========================================
+         2. IN-GAME BOARD VIEW
+         ========================================== -->
+    <div id="game-view">
+        <!-- 최상단 전면 헤더 (턴 및 롤 횟수 표시) -->
+        <header class="glass-panel game-header">
+            <div class="turn-indicator">
+                <span class="turn-name" id="display-current-turn">플레이어의 턴</span>
+                <span class="turn-status" id="display-turn-status">주사위를 굴려주세요.</span>
+            </div>
+            <div class="roll-tracker">
+                <span>ROLL</span>
+                <div class="dots" id="roll-dots">
+                    <div class="dot active"></div>
+                    <div class="dot active"></div>
+                    <div class="dot active"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 핵심 워크스페이스 가로 4분할 레이아웃 -->
+        <div class="game-workspace">
+            <!-- 컬럼 1: 게임 로그 및 채팅 (가장 왼쪽) -->
+            <aside class="sidebar-panel">
+                <!-- Room Info (Visible in Online Mode) -->
+                <section class="glass-panel network-room-info" id="online-room-info" style="display: none;">
+                    <div class="room-badge">
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">ROOM CODE</div>
+                            <span class="code" id="display-room-code">------</span>
+                        </div>
+                        <button id="btn-copy-room-code">복사 📋</button>
+                    </div>
+                    <div class="peer-list" id="display-peers">
+                        <!-- Peers will be listed here -->
+                    </div>
+                    <div style="font-size: 0.72rem; color: var(--accent-cyan); text-align: center; margin-top: 4px;" id="network-status-text">
+                        입장을 대기하고 있습니다... (1/4)
+                    </div>
+                    <button class="neon-btn cyan" id="btn-force-start" style="display: none; padding: 8px 16px; font-size: 0.8rem; justify-content: center; width: 100%;">
+                        게임 강제 시작
+                    </button>
+                </section>
+
+                <!-- Logs & Chat Container -->
+                <section class="glass-panel panel-tab-container">
+                    <div class="tab-header">
+                        <button class="tab-btn active" data-tab="tab-logs">게임 로그</button>
+                        <button class="tab-btn" data-tab="tab-chat" id="tab-chat-btn">채팅/이모티콘</button>
+                    </div>
+                    <div class="tab-content">
+                        <!-- Tab: Game Logs -->
+                        <div class="tab-pane active" id="tab-logs">
+                            <div id="log-messages">
+                                <div class="log-entry system-log">야추 다이스 방에 오신 것을 환영합니다!</div>
+                            </div>
+                        </div>
+
+                        <!-- Tab: Live Chat -->
+                        <div class="tab-pane" id="tab-chat">
+                            <div id="chat-messages">
+                                <!-- Messages -->
+                            </div>
+                            <div class="emoji-bar">
+                                <button class="emoji-btn" data-emoji="😀">😀</button>
+                                <button class="emoji-btn" data-emoji="🔥">🔥</button>
+                                <button class="emoji-btn" data-emoji="🎲">🎲</button>
+                                <button class="emoji-btn" data-emoji="🎉">🎉</button>
+                                <button class="emoji-btn" data-emoji="😭">😭</button>
+                                <button class="emoji-btn" data-emoji="😱">😱</button>
+                            </div>
+                            <div class="chat-input-bar">
+                                <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." maxlength="40">
+                                <button class="neon-btn cyan" id="btn-send-chat" style="padding: 8px 14px; font-size: 0.85rem;">전송</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <button class="neon-btn" id="btn-exit-game" style="background: rgba(255, 0, 127, 0.1); border-color: var(--accent-pink); width: 100%; justify-content: center;">
+                    🏳️ 로비로 나가기
+                </button>
+            </aside>
+
+            <!-- 컬럼 2: 점수판 (Scoreboard Panel) -->
+            <section class="glass-panel board-container">
+                <table class="score-table" id="score-table-element">
+                    <thead>
+                        <tr id="table-header-row">
+                            <th style="width: 200px;">카테고리</th>
+                            <!-- Player columns will be generated by JS -->
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Upper Section -->
+                        <tr data-cat="ones">
+                            <td class="category-cell">Ones <span class="desc">1의 합 (최대 5)</span></td>
+                        </tr>
+                        <tr data-cat="twos">
+                            <td class="category-cell">Twos <span class="desc">2의 합 (최대 10)</span></td>
+                        </tr>
+                        <tr data-cat="threes">
+                            <td class="category-cell">Threes <span class="desc">3의 합 (최대 15)</span></td>
+                        </tr>
+                        <tr data-cat="fours">
+                            <td class="category-cell">Fours <span class="desc">4의 합 (최대 20)</span></td>
+                        </tr>
+                        <tr data-cat="fives">
+                            <td class="category-cell">Fives <span class="desc">5의 합 (최대 25)</span></td>
+                        </tr>
+                        <tr data-cat="sixes">
+                            <td class="category-cell">Sixes <span class="desc">6의 합 (최대 30)</span></td>
+                        </tr>
+                        <!-- Subtotal & Bonus -->
+                        <tr class="subtotal-row" data-cat="subtotal">
+                            <td class="category-cell">Subtotal <span class="desc">위 6개 항목의 합</span></td>
+                        </tr>
+                        <tr class="bonus-row" data-cat="bonus">
+                            <td class="category-cell">Bonus <span class="desc">63점 이상 시 (+35)</span></td>
+                        </tr>
+                        <!-- Lower Section -->
+                        <tr data-cat="choice">
+                            <td class="category-cell">Choice <span class="desc">주사위 5개의 총합</span></td>
+                        </tr>
+                        <tr data-cat="4ofkind">
+                            <td class="category-cell">4 of a Kind <span class="desc">동일 눈 4개 이상 (눈의 총합)</span></td>
+                        </tr>
+                        <tr data-cat="fullhouse">
+                            <td class="category-cell">Full House <span class="desc">3개 동일 + 2개 동일 (눈의 총합)</span></td>
+                        </tr>
+                        <tr data-cat="sstraight">
+                            <td class="category-cell">S. Straight <span class="desc">4개 연속 눈 (15점 고정)</span></td>
+                        </tr>
+                        <tr data-cat="lstraight">
+                            <td class="category-cell">L. Straight <span class="desc">5개 연속 눈 (30점 고정)</span></td>
+                        </tr>
+                        <tr data-cat="yacht">
+                            <td class="category-cell">Yacht <span class="desc">5개 눈 모두 동일 (50점 고정)</span></td>
+                        </tr>
+                        <!-- Total -->
+                        <tr class="total-row" data-cat="total">
+                            <td class="category-cell">TOTAL <span class="desc">총합 점수</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- 컬럼 3 & 4: 정사각형 주사위 트레이 및 주사위 통 -->
+            <section class="glass-panel dice-board">
+                <!-- 정사각형 주사위 트레이 (중앙 오른쪽) -->
+                <div class="dice-tray" id="dice-tray">
+                    <!-- 킵 가이드라인 백그라운드 -->
+                    <div class="keep-zone-guide">
+                        <span>KEEP ZONE</span>
+                    </div>
+                </div>
+
+                <!-- 맨 오른쪽: 주사위 통 & 컨트롤 영역 -->
+                <div class="dice-cup-container">
+                    <!-- 흔들기 파워 게이지 -->
+                    <div class="shake-power-container" id="shake-power-wrap">
+                        <div class="shake-power-bar" id="shake-power-bar"></div>
+                    </div>
+                    
+                    <div class="dice-cup-wrapper">
+                        <div class="dice-cup" id="dice-cup">
+                            <!-- 3D 원통 옆면 레이어를 동적으로 삽입할 래퍼 -->
+                            <div class="cup-layers-wrapper" id="cup-layers-wrapper"></div>
+                            
+                            <!-- 컵 내부 공간 (옆면 위 입구) -->
+                            <div class="cup-inner-space">
+                                <div class="mini-dice-container" id="mini-dice-container">
+                                    <div class="mini-dice" id="mini-dice-0">
+                                        <div class="mini-cube" id="mini-cube-0">
+                                            <div class="mini-face front"><span class="mini-pip"></span></div>
+                                            <div class="mini-face back"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face right"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face left"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face top"><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face bottom"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                        </div>
+                                    </div>
+                                    <div class="mini-dice" id="mini-dice-1">
+                                        <div class="mini-cube" id="mini-cube-1">
+                                            <div class="mini-face front"><span class="mini-pip"></span></div>
+                                            <div class="mini-face back"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face right"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face left"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face top"><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face bottom"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                        </div>
+                                    </div>
+                                    <div class="mini-dice" id="mini-dice-2">
+                                        <div class="mini-cube" id="mini-cube-2">
+                                            <div class="mini-face front"><span class="mini-pip"></span></div>
+                                            <div class="mini-face back"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face right"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face left"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face top"><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face bottom"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                        </div>
+                                    </div>
+                                    <div class="mini-dice" id="mini-dice-3">
+                                        <div class="mini-cube" id="mini-cube-3">
+                                            <div class="mini-face front"><span class="mini-pip"></span></div>
+                                            <div class="mini-face back"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face right"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face left"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face top"><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face bottom"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                        </div>
+                                    </div>
+                                    <div class="mini-dice" id="mini-dice-4">
+                                        <div class="mini-cube" id="mini-cube-4">
+                                            <div class="mini-face front"><span class="mini-pip"></span></div>
+                                            <div class="mini-face back"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face right"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face left"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face top"><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                            <div class="mini-face bottom"><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span><span class="mini-pip"></span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 탑뷰 전용 미래지향적 네온 원형 뚜껑 -->
+                            <div class="cup-lid" id="cup-lid">
+                                <div class="lid-inner">
+                                    <span class="lid-logo">YACHT</span>
+                                    <span class="lid-sub">DICE CUP</span>
+                                </div>
+                                <div class="lid-border-glow"></div>
+                            </div>
+
+                            <!-- 컵 외곽 베젤 및 네온 테두리 -->
+                            <div class="cup-bezel"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 흔들기 가이드 텍스트 -->
+                    <div class="shake-guide-text" id="shake-guide-text">꾹 누른 채 흔들어 던지세요! 🎲</div>
+                    
+                    <div class="dice-controls">
+                        <button class="neon-btn cyan" id="btn-roll" style="width: 100%; justify-content: center; padding: 14px 0; font-size: 1.1rem;">
+                            🎲 ROLL DICE
+                        </button>
+                        <button class="neon-btn" id="btn-reset-turn" style="width: 100%; justify-content: center; background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.15);">
+                            처음으로
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         3. GAME OVER MODAL OVERLAY
+         ========================================== -->
+    <div class="modal-overlay" id="modal-gameover">
+        <div class="glass-panel modal-content">
+            <h2>🏆 GAME OVER</h2>
+            <div id="gameover-results" style="margin: 15px 0;">
+                <!-- Winner name and score comparison details will go here -->
+            </div>
+            <p>모든 주사위 라운드가 종료되었습니다! 다시 대결하시겠습니까?</p>
+            <div class="modal-actions">
+                <button class="neon-btn cyan" id="btn-modal-restart">다시 하기</button>
+                <button class="neon-btn" id="btn-modal-lobby">로비로 이동</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+    <script src="network.js"></script>
+</body>
+</html>
