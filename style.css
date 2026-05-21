@@ -1197,6 +1197,7 @@ body {
     gap: 8px;
     font-size: 0.82rem;
     color: var(--text-muted);
+    max-height: 310px; /* 부모 컨테이너를 뚫고 나가지 않도록 최대 높이 제한 및 스크롤 활성화 */
 }
 
 .log-entry {
@@ -1226,6 +1227,7 @@ body {
     gap: 10px;
     margin-bottom: 10px;
     padding-right: 4px;
+    max-height: 220px; /* 이모지/인풋바 공간을 고려해 높이 상한을 두어 스크롤 고정 */
 }
 
 .chat-bubble {
