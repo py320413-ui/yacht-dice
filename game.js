@@ -350,6 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.gpuAccelerated = isHardwareAccelerationEnabled();
     if (!state.gpuAccelerated) {
         console.warn("WebGL/GPU Hardware Acceleration disabled! 2D Fallback Glassmorphism mode activated.");
+        document.body.classList.add('gpu-disabled'); // CPU-Friendly CSS 오버라이드 가동
     }
 
     setupLobbyEvents();
@@ -932,6 +933,149 @@ function get2DDiceMarkup(value) {
     
     const faceClass = ['front', 'back', 'right', 'left', 'top', 'bottom'][value - 1] || 'front';
     return `<div class="face ${faceClass}" style="position:static; width:100%; height:100%; border:none; box-shadow:none; border-radius:14px; background:none;">${pips}</div>`;
+}
+
+// CPU-Friendly 초경량 2D 우회 모드 실행기 (하드웨어 가속 미지원 브라우저 전용)
+function executeLightweight2DRoll(forcedValues = null, shakePower = 50, isDragRelease = false) {
+    const cup = document.getElementById('dice-cup');
+    const rollButton = document.getElementById('btn-roll');
+    const slots = document.querySelectorAll('.dice-slot');
+    
+    if (rollButton) rollButton.disabled = true;
+    soundEngine.playRoll(); // 흔드는 소리
+    
+    addGameLog(`⚡ CPU-Friendly 2D 우회 롤링 가동...`);
+
+    // 1. 주사위 슬롯에 롤링 애니메이션 전용 클래스 및 상태 갱신
+    state.dice.forEach((d, i) => {
+        if (d.kept) return;
+        
+        const slot = slots[i];
+        if (slot) {
+            slot.classList.add('rolling');
+            slot.style.display = 'flex';
+            slot.style.opacity = '1';
+            slot.style.pointerEvents = 'auto';
+        }
+    });
+
+    // 2. 컵 애니메이션 처리
+    if (isDragRelease) {
+        if (cup) {
+            cup.classList.remove('pressed');
+            cup.classList.add('pouring-open');
+            cup.style.left = `${gestureState.releaseX}px`;
+            cup.style.top = `${gestureState.releaseY}px`;
+            cup.style.transition = 'left 0.25s ease, top 0.25s ease, transform 0.25s ease';
+            cup.style.transform = `perspective(900px) rotateX(45deg) scale(1.05)`;
+        }
+    } else {
+        if (cup) {
+            cup.classList.add('shaking');
+        }
+        setTimeout(() => {
+            if (cup) {
+                cup.classList.remove('shaking');
+                cup.classList.add('pouring');
+            }
+        }, 300); // 컵 흔들기를 0.3초로 극도로 단축하여 렉 방지
+    }
+
+    // 3. 눈금 롤링 타이머 가동 (가속 꺼진 환경에 최적화된 2D 눈금 난수 스위칭)
+    let rollDuration = 550; // 0.55초간 슬림하고 빠르게 연출
+    let intervalId = setInterval(() => {
+        state.dice.forEach((d, i) => {
+            if (d.kept) return;
+            const dice2d = document.getElementById(`dice-2d-${i}`);
+            if (dice2d) {
+                const tempVal = Math.floor(Math.random() * 6) + 1;
+                dice2d.innerHTML = get2DDiceMarkup(tempVal);
+            }
+        });
+    }, 60);
+
+    // 4. 0.55초 후 최종 확정 및 스탑
+    setTimeout(() => {
+        clearInterval(intervalId);
+        
+        // 컵 리셋
+        if (cup) {
+            cup.classList.remove('pouring', 'pouring-open', 'shaking');
+            cup.style.transition = 'left 0.35s ease, top 0.35s ease, transform 0.35s ease';
+            cup.style.left = '0px';
+            cup.style.top = '0px';
+            cup.style.transform = 'perspective(900px) scale(1)';
+            
+            setTimeout(() => {
+                cup.style.zIndex = '';
+                cup.style.transition = '';
+                cup.style.left = '';
+                cup.style.top = '';
+                cup.style.transform = '';
+            }, 380);
+        }
+
+        // 최종 값 결정 및 2D 렌더링
+        state.dice.forEach((d, i) => {
+            const slot = slots[i];
+            if (slot) {
+                slot.classList.remove('rolling');
+            }
+            if (!d.kept) {
+                if (forcedValues && forcedValues[i]) {
+                    d.value = forcedValues[i];
+                } else {
+                    d.value = Math.floor(Math.random() * 6) + 1;
+                }
+                
+                // 가속 꺼진 상태에서는 트레이 내부의 한산한 임의 영역에 단순 2D 배치
+                const coords = generateDiceTrayCoordinates(i);
+                d.randomLeft = coords.randomLeft;
+                d.randomTop = coords.randomTop;
+                d.randomAngle = coords.randomAngle;
+
+                slot.style.left = d.randomLeft;
+                slot.style.top = d.randomTop;
+                slot.style.transform = `rotateZ(${d.randomAngle}deg)`;
+
+                const dice2d = document.getElementById(`dice-2d-${i}`);
+                if (dice2d) {
+                    dice2d.style.display = 'flex';
+                    dice2d.innerHTML = get2DDiceMarkup(d.value);
+                }
+                const dice3d = document.getElementById(`dice-3d-${i}`);
+                if (dice3d) {
+                    dice3d.style.display = 'none';
+                }
+            }
+        });
+
+        // 온라인 멀티 플레이 연동
+        if (state.gameMode === 'online' && !forcedValues && window.networkController) {
+            window.networkController.sendRoll(state.dice.map(d => d.value));
+        }
+
+        state.isRolling = false;
+        soundEngine.playDiceHit(); // 최종 안착 찰진 사운드
+
+        // 0.1초 딜레이 후 즉시 일렬 쇼케이스 정렬 트리거 (반응성 200% 증가)
+        setTimeout(() => {
+            arrangeActiveDiceInLine();
+            renderDice();
+            checkCombinationCelebrate();
+        }, 100);
+
+        renderScoreboard();
+        updateRollTrackerUI();
+
+        // AI 연속 흐름 연동
+        const active = activePlayer();
+        if (active.isAI && state.rollCount > 0) {
+            setTimeout(aiDecideKeep, 1200);
+        } else if (active.isAI && state.rollCount === 0) {
+            setTimeout(aiDecideScore, 1200);
+        }
+    }, rollDuration);
 }
 
 /* ==========================================
@@ -1759,6 +1903,12 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
     state.isRolling = true;
     state.rollCount--;
     updateRollTrackerUI();
+    
+    // GPU 하드웨어 가속이 꺼진 경우, CPU-Friendly 초경량 2D 우회 모드로 분기!
+    if (!state.gpuAccelerated) {
+        executeLightweight2DRoll(forcedValues, shakePower, isDragRelease);
+        return;
+    }
     
     addGameLog(`🎲 주사위 롤링... (남은 횟수: ${state.rollCount}회)`);
 

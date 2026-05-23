@@ -1715,3 +1715,63 @@ body {
         transform: scale(1.04);
     }
 }
+
+/* ==========================================
+   CPU-Friendly Lightweight 2D Bypass Mode Styling (GPU 가속 비활성화 전용)
+   ========================================== */
+.gpu-disabled * {
+    /* 1. CPU 리페인팅 병목 주범인 복합 필터 및 복잡한 그림자를 전면 제거/단순화 */
+    text-shadow: none !important;
+}
+
+/* 2D 주사위 가속 미지원 모드 최적화 */
+.gpu-disabled .dice-2d {
+    background: #181326 !important; /* 복잡한 radial/linear gradient를 단색 배경으로 변경해 렌더 부하 방지 */
+    border: 2px solid rgba(255, 255, 255, 0.15) !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4) !important; /* 엄청나게 렉을 일으키는 복합 내외부 4중 섀도우를 단순 1중 섀도우로 격하 */
+}
+
+/* 킵(KEEP) 상태일 때 2D 주사위 최적화 */
+.gpu-disabled .dice-slot.keep .dice-2d {
+    background: #ffbe0b !important;
+    border-color: #ffd700 !important;
+    box-shadow: 0 4px 10px rgba(255, 190, 11, 0.4) !important; /* gold-glow 네온 필터 제거 후 단순 그림자 */
+}
+
+/* 쇼케이스 정렬 시 2D 주사위 최적화 (가시성 확보용) */
+.gpu-disabled .dice-slot.showcase .dice-2d {
+    transform: scale(1.28) !important;
+    box-shadow: 0 0 16px rgba(0, 245, 212, 0.45) !important; /* 엄청나게 무거운 drop-shadow() 필터를 단순 2D box-shadow로 변환 */
+    filter: none !important;
+}
+
+/* 3. 컵 흔들기 및 쏟기 애니메이션 경량화 */
+.gpu-disabled #dice-cup.shaking {
+    /* CPU를 살인적으로 괴롭히는 3D 회전 애니메이션 대신, 가볍고 매끄러운 2D Translate 좌우 흔들림으로 전환 */
+    animation: shaking-2d-simple 0.28s ease-in-out infinite !important;
+    transform: none !important;
+}
+
+.gpu-disabled #dice-cup.pouring {
+    /* 컵 쏟기 액션 시 3D 원근 소실점 변환을 배제하고 단순 2D 기울기 변환만 사용하여 렉 제거 */
+    transform: translate(-10px, -20px) rotate(-15deg) scale(1.05) !important;
+    transition: transform 0.2s ease !important;
+}
+
+.gpu-disabled #dice-cup.pouring-open {
+    transform: rotate(-25deg) scale(1.05) !important;
+    transition: transform 0.2s ease !important;
+}
+
+@keyframes shaking-2d-simple {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px) rotate(-1deg); }
+    75% { transform: translateX(6px) rotate(1deg); }
+}
+
+/* 4. 기타 불필요한 무거운 효과 비활성화 */
+.gpu-disabled .ray-effect,
+.gpu-disabled .confetti-particle {
+    display: none !important; /* 승리 시 회전하는 광선 효과나 파티클을 숨겨 CPU 폭사 방지 */
+}
+
