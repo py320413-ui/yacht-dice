@@ -3032,9 +3032,26 @@ function checkCombinationCelebrate() {
                 soundEngine.playBonus();
             }
 
-            // 2.2초 동안 연출한 뒤 페이드아웃 후 비활성화
-            setTimeout(() => {
+            // 기존 타이머 취소 (중복 호출 방지)
+            if (overlay.celebrationTimeoutId) {
+                clearTimeout(overlay.celebrationTimeoutId);
+            }
+
+            // 클릭 시 즉시 사라지는 핸들러
+            const clickHandler = () => {
                 overlay.classList.remove('active');
+                if (overlay.celebrationTimeoutId) {
+                    clearTimeout(overlay.celebrationTimeoutId);
+                }
+                overlay.removeEventListener('click', clickHandler);
+            };
+
+            overlay.addEventListener('click', clickHandler);
+
+            // 2.2초 동안 연출한 뒤 페이드아웃 후 비활성화
+            overlay.celebrationTimeoutId = setTimeout(() => {
+                overlay.classList.remove('active');
+                overlay.removeEventListener('click', clickHandler);
             }, 2200);
         }
     }
