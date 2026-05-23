@@ -351,6 +351,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!state.gpuAccelerated) {
         console.warn("WebGL/GPU Hardware Acceleration disabled! 2D Fallback Glassmorphism mode activated.");
         document.body.classList.add('gpu-disabled'); // CPU-Friendly CSS 오버라이드 가동
+
+        // [프리미엄 세련된 GPU 경고 배너동적 생성 배포]
+        const banner = document.createElement('div');
+        banner.className = 'gpu-warning-banner';
+        banner.innerHTML = `
+            <div class="banner-content">
+                <span class="banner-icon">💡</span>
+                <span class="banner-text">하드웨어 가속(GPU)이 비활성화되어 <strong>초경량 2D 정적 모드</strong>로 플레이합니다. 브라우저 설정에서 그래픽 가속을 켜시면 화려하고 실감나는 3D 입체 주사위 텀블링을 즐기실 수 있습니다!</span>
+                <button class="banner-close-btn">&times;</button>
+            </div>
+        `;
+        document.body.appendChild(banner);
+        
+        banner.querySelector('.banner-close-btn').addEventListener('click', () => {
+            banner.style.opacity = '0';
+            banner.style.transform = 'translateY(-20px) translateX(-50%)';
+            setTimeout(() => banner.remove(), 400);
+        });
     }
 
     setupLobbyEvents();
@@ -652,6 +670,7 @@ function setupShakeGesture() {
 
     // ── mousedown / touchstart: 컵 잡기 ──
     const onDown = (e) => {
+        if (!state.gpuAccelerated) return; // 하드웨어 가속 비활성화 시 컵 드래그 제스처 전면 비활성화 (Bypass 컵 모션)
         if (state.isRolling) return;
         if (state.rollCount === 0) return;
         const active = state.players[state.currentPlayerIdx];
@@ -902,13 +921,17 @@ function isHardwareAccelerationEnabled() {
         const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
         if (!gl) return false;
         
-        // SwiftShader 등 소프트웨어 렌더러인 경우 하드웨어 가속 미지원으로 간주하여 2D로 격하
+        // SwiftShader, WARP, Basic Render Driver 등 소프트웨어 렌더러인 경우 하드웨어 가속 미지원으로 간주하여 2D로 격하
         const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
         if (debugInfo) {
             const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
-            if (renderer.toLowerCase().includes('swiftshader') || 
-                renderer.toLowerCase().includes('software rendering') ||
-                renderer.toLowerCase().includes('llvmpipe')) {
+            const rLower = renderer.toLowerCase();
+            if (rLower.includes('swiftshader') || 
+                rLower.includes('software rendering') ||
+                rLower.includes('llvmpipe') ||
+                rLower.includes('microsoft basic render driver') ||
+                rLower.includes('warp') ||
+                rLower.includes('google swiftshader')) {
                 return false;
             }
         }
@@ -931,58 +954,69 @@ function get2DDiceMarkup(value) {
         }
     }
     
-    const faceClass = ['front', 'back', 'right', 'left', 'top', 'bottom'][value - 1] || 'front';
+    // 표준 주사위 눈금 배치 매핑 (1:중앙, 2:대각선, 3:대각선, 4:모서리, 5:중앙+4개, 6:2x3격자)
+    const faceClasses = ['front', 'top', 'right', 'left', 'bottom', 'back'];
+    const faceClass = faceClasses[value - 1] || 'front';
     return `<div class="face ${faceClass}" style="position:static; width:100%; height:100%; border:none; box-shadow:none; border-radius:14px; background:none;">${pips}</div>`;
 }
 
-// CPU-Friendly 초경량 2D 우회 모드 실행기 (하드웨어 가속 미지원 브라우저 전용)
+// CPU-Friendly 초경량 2D 정적 단면 모드 실행기 (정렬된 상태에서 주사위 눈금만 파파팍 변경 연출)
 function executeLightweight2DRoll(forcedValues = null, shakePower = 50, isDragRelease = false) {
     const cup = document.getElementById('dice-cup');
     const rollButton = document.getElementById('btn-roll');
     const slots = document.querySelectorAll('.dice-slot');
     
     if (rollButton) rollButton.disabled = true;
-    soundEngine.playRoll(); // 흔드는 소리
+    soundEngine.playRoll(); // 자갈 흔드는 컵 사운드 재생
     
-    addGameLog(`⚡ CPU-Friendly 2D 우회 롤링 가동...`);
+    addGameLog(`⚡ 정위치 2D 주사위 눈금 롤링 가동...`);
 
-    // 1. 주사위 슬롯에 롤링 애니메이션 전용 클래스 및 상태 갱신
+    // 1. 주사위 슬롯 롤링 상태 마킹 및 2D 셰이킹 애니메이션 클래스 부여 (숨기지 않고 그 위치 고수!)
     state.dice.forEach((d, i) => {
-        if (d.kept) return;
-        
         const slot = slots[i];
-        if (slot) {
-            slot.classList.add('rolling');
-            slot.style.display = 'flex';
-            slot.style.opacity = '1';
-            slot.style.pointerEvents = 'auto';
+        if (!slot) return;
+
+        const dice2d = document.getElementById(`dice-2d-${i}`);
+        const dice3d = document.getElementById(`dice-3d-${i}`);
+        
+        // [버그 수정 완료] 롤링 시작 시 2D 폴백 레이어가 display:none으로 숨겨지는 현상을 원천 방지하여 강제 활성화!
+        if (dice2d) dice2d.style.display = 'flex';
+        if (dice3d) dice3d.style.display = 'none';
+
+        if (d.kept) return; // 킵된 주사위는 제자리 롤링 셰이크에서 제외
+        
+        slot.classList.add('rolling', 'rolling-2d-static');
+        slot.style.display = 'flex';
+        slot.style.opacity = '1';
+        slot.style.pointerEvents = 'auto';
+        
+        // 이미 수평 일렬 정렬된 상태로 보장하기 위해 위치 즉시 보정
+        arrangeActiveDiceInLine();
+        slot.style.left = d.randomLeft;
+        slot.style.top = d.randomTop;
+        slot.style.transform = 'rotateZ(0deg)';
+
+        // 2D 눈금 즉각 갱신
+        if (dice2d) {
+            dice2d.innerHTML = get2DDiceMarkup(d.value);
         }
     });
 
-    // 2. 컵 애니메이션 처리
-    if (isDragRelease) {
-        if (cup) {
-            cup.classList.remove('pressed');
-            cup.classList.add('pouring-open');
-            cup.style.left = `${gestureState.releaseX}px`;
-            cup.style.top = `${gestureState.releaseY}px`;
-            cup.style.transition = 'left 0.25s ease, top 0.25s ease, transform 0.25s ease';
-            cup.style.transform = `perspective(900px) rotateX(45deg) scale(1.05)`;
+    // 2. 컵 흔들기/쏟기 애니메이션의 transition/transform 전면 비활성화 (렉 유발 차단)
+    if (cup) {
+        cup.style.transition = 'none';
+        cup.style.transform = 'none';
+        if (isDragRelease) {
+            cup.style.left = '0px';
+            cup.style.top = '0px';
         }
-    } else {
-        if (cup) {
-            cup.classList.add('shaking');
-        }
-        setTimeout(() => {
-            if (cup) {
-                cup.classList.remove('shaking');
-                cup.classList.add('pouring');
-            }
-        }, 300); // 컵 흔들기를 0.3초로 극도로 단축하여 렉 방지
     }
 
-    // 3. 눈금 롤링 타이머 가동 (가속 꺼진 환경에 최적화된 2D 눈금 난수 스위칭)
-    let rollDuration = 550; // 0.55초간 슬림하고 빠르게 연출
+    // [시간 통일] 3D 하드웨어 가속 모드의 물리 비행 및 정착 딜레이와 완벽하게 시간을 통일 (온라인 동기화 템포 유지)
+    // 버튼 클릭 롤 평균 완료: 약 2.45초 (2450ms) / 드래그 릴리즈 롤 평균 완료: 약 1.65초 (1650ms)
+    let rollDuration = isDragRelease ? 1650 : 2450;
+    
+    // 3. 눈금만 롤링 타이머 가동 (0.05초 주기로 정위치 난수 눈금 팡팡 스위칭)
     let intervalId = setInterval(() => {
         state.dice.forEach((d, i) => {
             if (d.kept) return;
@@ -992,34 +1026,25 @@ function executeLightweight2DRoll(forcedValues = null, shakePower = 50, isDragRe
                 dice2d.innerHTML = get2DDiceMarkup(tempVal);
             }
         });
-    }, 60);
+    }, 50);
 
-    // 4. 0.55초 후 최종 확정 및 스탑
+    // 4. 조율된 롤 연출 시간 후 최종 확정 및 스탑
     setTimeout(() => {
         clearInterval(intervalId);
         
-        // 컵 리셋
         if (cup) {
             cup.classList.remove('pouring', 'pouring-open', 'shaking');
-            cup.style.transition = 'left 0.35s ease, top 0.35s ease, transform 0.35s ease';
-            cup.style.left = '0px';
-            cup.style.top = '0px';
-            cup.style.transform = 'perspective(900px) scale(1)';
-            
-            setTimeout(() => {
-                cup.style.zIndex = '';
-                cup.style.transition = '';
-                cup.style.left = '';
-                cup.style.top = '';
-                cup.style.transform = '';
-            }, 380);
+            cup.style.transition = '';
+            cup.style.transform = '';
+            cup.style.left = '';
+            cup.style.top = '';
         }
 
         // 최종 값 결정 및 2D 렌더링
         state.dice.forEach((d, i) => {
             const slot = slots[i];
             if (slot) {
-                slot.classList.remove('rolling');
+                slot.classList.remove('rolling', 'rolling-2d-static');
             }
             if (!d.kept) {
                 if (forcedValues && forcedValues[i]) {
@@ -1028,16 +1053,8 @@ function executeLightweight2DRoll(forcedValues = null, shakePower = 50, isDragRe
                     d.value = Math.floor(Math.random() * 6) + 1;
                 }
                 
-                // 가속 꺼진 상태에서는 트레이 내부의 한산한 임의 영역에 단순 2D 배치
-                const coords = generateDiceTrayCoordinates(i);
-                d.randomLeft = coords.randomLeft;
-                d.randomTop = coords.randomTop;
-                d.randomAngle = coords.randomAngle;
-
-                slot.style.left = d.randomLeft;
-                slot.style.top = d.randomTop;
-                slot.style.transform = `rotateZ(${d.randomAngle}deg)`;
-
+                d.randomAngle = 0;
+                
                 const dice2d = document.getElementById(`dice-2d-${i}`);
                 if (dice2d) {
                     dice2d.style.display = 'flex';
@@ -1058,12 +1075,10 @@ function executeLightweight2DRoll(forcedValues = null, shakePower = 50, isDragRe
         state.isRolling = false;
         soundEngine.playDiceHit(); // 최종 안착 찰진 사운드
 
-        // 0.1초 딜레이 후 즉시 일렬 쇼케이스 정렬 트리거 (반응성 200% 증가)
-        setTimeout(() => {
-            arrangeActiveDiceInLine();
-            renderDice();
-            checkCombinationCelebrate();
-        }, 100);
+        // 즉시 가로 일자 쇼케이스 정렬 수행 (렉 없이 정위치 고수 보정)
+        arrangeActiveDiceInLine();
+        renderDice();
+        checkCombinationCelebrate();
 
         renderScoreboard();
         updateRollTrackerUI();
@@ -1071,9 +1086,9 @@ function executeLightweight2DRoll(forcedValues = null, shakePower = 50, isDragRe
         // AI 연속 흐름 연동
         const active = activePlayer();
         if (active.isAI && state.rollCount > 0) {
-            setTimeout(aiDecideKeep, 1200);
+            setTimeout(aiDecideKeep, 1000);
         } else if (active.isAI && state.rollCount === 0) {
-            setTimeout(aiDecideScore, 1200);
+            setTimeout(aiDecideScore, 1000);
         }
     }, rollDuration);
 }
@@ -1717,6 +1732,8 @@ const DICE_ROTATIONS = {
 };
 
 function resolveStaticCollisions() {
+    if (!state.gpuAccelerated) return; // 하드웨어 가속 비활성화 시 물리 겹침 연산 완전 스킵
+    
     // 킵되지 않았으며 화면에 표시되는 주사위들만 수집
     const activeDice = state.dice.filter((d) => {
         if (d.kept) return false;
@@ -1832,7 +1849,10 @@ function renderDice() {
             // 주사위 숨김 조건 정의
             // 1) 턴 초기 상태 (아직 롤을 전혀 하지 않음): rollCount === 3
             // 2) 롤 진행 중이나 아직 물리 엔진이 활성화 안 된 경우 (즉, 컵 쉐이킹 페이즈): isRolling && !physicsEngine.running
-            const shouldHide = (state.rollCount === 3) || (state.isRolling && !physicsEngine.running);
+            let shouldHide = (state.rollCount === 3) || (state.isRolling && !physicsEngine.running);
+            if (!state.gpuAccelerated) {
+                shouldHide = false; // 가속이 꺼졌을 때는 숨기지 않고 항상 노출!
+            }
             
             if (shouldHide) {
                 slot.classList.remove('showcase');
@@ -1845,22 +1865,31 @@ function renderDice() {
                 slot.style.pointerEvents = 'auto';
                 
                 // [프리미엄 쇼케이스 연출] 롤 완료되어 정지한 정착 단계일 때 1.28배 확대 및 네온 글로우 클래스 추가
-                if (!state.isRolling && state.rollCount < 3) {
+                // 가속이 꺼졌을 때는 정위치 일렬 정렬을 유지하므로 롤링 중 유무와 관계없이 항상 showcase(1.28배) 유지
+                if (!state.gpuAccelerated || (!state.isRolling && state.rollCount < 3)) {
                     slot.classList.add('showcase');
                 } else {
                     slot.classList.remove('showcase');
                 }
                 
-                // 킵 해제/기본 상태: 트레이 내 무작위 좌표 및 삐딱한 각도 부여
-                if (d.randomTop === undefined) {
-                    const coords = generateDiceTrayCoordinates(i);
-                    d.randomTop = coords.randomTop;
-                    d.randomLeft = coords.randomLeft;
-                    d.randomAngle = coords.randomAngle;
+                if (!state.gpuAccelerated) {
+                    // 가속 꺼진 상태: 항상 수평 중앙 일렬 쇼케이스 위치를 강제 부여하여 눈만 바뀜
+                    arrangeActiveDiceInLine();
+                    slot.style.top = d.randomTop;
+                    slot.style.left = d.randomLeft;
+                    slot.style.transform = 'rotateZ(0deg)';
+                } else {
+                    // 킵 해제/기본 상태: 트레이 내 무작위 좌표 및 삐딱한 각도 부여
+                    if (d.randomTop === undefined) {
+                        const coords = generateDiceTrayCoordinates(i);
+                        d.randomTop = coords.randomTop;
+                        d.randomLeft = coords.randomLeft;
+                        d.randomAngle = coords.randomAngle;
+                    }
+                    slot.style.top = d.randomTop;
+                    slot.style.left = d.randomLeft;
+                    slot.style.transform = `rotateZ(${d.randomAngle}deg)`;
                 }
-                slot.style.top = d.randomTop;
-                slot.style.left = d.randomLeft;
-                slot.style.transform = `rotateZ(${d.randomAngle}deg)`;
             }
         }
         

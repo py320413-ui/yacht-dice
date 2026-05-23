@@ -1740,7 +1740,7 @@ body {
 
 /* 쇼케이스 정렬 시 2D 주사위 최적화 (가시성 확보용) */
 .gpu-disabled .dice-slot.showcase .dice-2d {
-    transform: scale(1.28) !important;
+    transform: scale(1.15) !important;
     box-shadow: 0 0 16px rgba(0, 245, 212, 0.45) !important; /* 엄청나게 무거운 drop-shadow() 필터를 단순 2D box-shadow로 변환 */
     filter: none !important;
 }
@@ -1774,4 +1774,178 @@ body {
 .gpu-disabled .confetti-particle {
     display: none !important; /* 승리 시 회전하는 광선 효과나 파티클을 숨겨 CPU 폭사 방지 */
 }
+
+/* GPU 하드웨어 가속 비활성화 프리미엄 알림 배너 */
+.gpu-warning-banner {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(0);
+    z-index: 10000;
+    width: 90%;
+    max-width: 650px;
+    padding: 12px 20px;
+    border-radius: 12px;
+    background: rgba(30, 20, 50, 0.88);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 190, 11, 0.45);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 190, 11, 0.2);
+    color: #f1ecfb;
+    font-family: 'Inter', 'Outfit', sans-serif;
+    font-size: 13.5px;
+    line-height: 1.5;
+    opacity: 1;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.gpu-warning-banner strong {
+    color: #ffbe0b;
+}
+.gpu-warning-banner .banner-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.gpu-warning-banner .banner-icon {
+    font-size: 18px;
+    filter: drop-shadow(0 0 5px rgba(255, 190, 11, 0.6));
+}
+.gpu-warning-banner .banner-text {
+    flex: 1;
+}
+.gpu-warning-banner .banner-close-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 5px;
+    transition: color 0.2s ease;
+}
+.gpu-warning-banner .banner-close-btn:hover {
+    color: #ffbe0b;
+}
+
+/* 가속 비활성화 모드 전용: 정위치 주사위 눈 롤링 시 미세 2D 진동 셰이크 */
+.gpu-disabled .dice-slot.rolling-2d-static {
+    animation: rolling-2d-shake-micro 0.08s linear infinite !important;
+}
+
+@keyframes rolling-2d-shake-micro {
+    0%, 100% { transform: scale(1.15) rotate(0deg); }
+    25% { transform: scale(1.15) translate(-1.5px, 1px) rotate(-0.5deg); }
+    75% { transform: scale(1.15) translate(1.5px, -1px) rotate(0.5deg); }
+}
+
+@media (max-width: 480px) {
+    .gpu-warning-banner {
+        top: 10px;
+        font-size: 12px;
+        padding: 10px 14px;
+    }
+}
+
+/* ==========================================
+   CPU-Friendly Wood Theme Dice & display:none Fix
+   ========================================== */
+
+/* 1. [가시성 버그 수정 완료] Z축 3D 밀려남 회전(translateZ)을 강제 해제하여 2D 면이 100% 보이게 보정 */
+.gpu-disabled .dice-2d .face {
+    position: static !important;
+    width: 100% !important;
+    height: 100% !important;
+    transform: none !important; /* 3D로 사방에 흩뿌려지며 투명해지던 버그를 완전히 차단! */
+    display: grid !important;
+    justify-items: center !important;
+    align-items: center !important;
+    background: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+/* 2. 흰색 주사위 프리미엄 비주얼 최적화 */
+.gpu-disabled .dice-2d {
+    background: #ffffff !important; /* 순백색 배경 */
+    border: 3px solid rgba(0, 0, 0, 0.2) !important;
+    border-color: #e0e0e0 #666666 #666666 #e0e0e0 !important; /* 입체 보더 */
+    box-shadow: inset 1px 1px 2px rgba(255, 255, 255, 0.8),
+                inset -2px -2px 3px rgba(0, 0, 0, 0.2),
+                0 8px 14px rgba(0, 0, 0, 0.3) !important; /* 부드러운 입체 섀도우 */
+    border-radius: 14px !important;
+}
+
+/* 킵(KEEP) 상태일 때 흰색 주사위 유지 (경계선 강조) */
+.gpu-disabled .dice-slot.keep .dice-2d {
+    background: #ffffff !important;
+    border-color: #00f5d4 #00d4b8 #00d4b8 #00f5d4 !important;
+    box-shadow: inset 1px 1px 2px rgba(255, 255, 255, 0.8),
+                inset -2px -2px 3px rgba(0, 0, 0, 0.2),
+                0 0 18px rgba(0, 245, 212, 0.45) !important;
+}
+
+/* 쇼케이스 정렬 시 흰색 주사위 청록 네온 테두리 광택 */
+.gpu-disabled .dice-slot.showcase .dice-2d {
+    transform: scale(1.15) !important;
+    box-shadow: 0 0 20px rgba(0, 245, 212, 0.5) !important;
+    filter: none !important;
+}
+
+/* 흰색 주사위 눈금 (검정색) */
+.gpu-disabled .dice-2d .pip {
+    background: radial-gradient(circle at 35% 35%, #1a1a1a 0%, #000000 75%) !important; /* 진한 검정 눈금 */
+    box-shadow: inset 0.5px 0.5px 1px rgba(0, 0, 0, 0.5) !important;
+    border-radius: 50% !important;
+}
+
+/* 1번 빨강 눈금 (전통 주사위 스타일 유지) */
+.gpu-disabled .dice-2d .face.front .pip {
+    background: radial-gradient(circle at 35% 35%, #dc143c 0%, #8b0000 80%) !important; /* 크림슨 레드 */
+    box-shadow: inset 0.5px 0.5px 1px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* GPU-disabled 상태 주사위 눈금 그리드 배치 */
+.gpu-disabled .dice-2d .face {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    justify-items: center !important;
+    align-items: center !important;
+}
+
+/* 2번 눈금 배치: 대각선 좌상, 우하 */
+.gpu-disabled .dice-2d .face.top .pip:nth-child(1) { grid-area: 1 / 1; }
+.gpu-disabled .dice-2d .face.top .pip:nth-child(2) { grid-area: 3 / 3; }
+
+/* 3번 눈금 배치: 대각선 좌상, 중앙, 우하 */
+.gpu-disabled .dice-2d .face.right .pip:nth-child(1) { grid-area: 1 / 1; }
+.gpu-disabled .dice-2d .face.right .pip:nth-child(2) { grid-area: 2 / 2; }
+.gpu-disabled .dice-2d .face.right .pip:nth-child(3) { grid-area: 3 / 3; }
+
+/* 4번 눈금 배치: 4개 모서리 */
+.gpu-disabled .dice-2d .face.left .pip:nth-child(1) { grid-area: 1 / 1; }
+.gpu-disabled .dice-2d .face.left .pip:nth-child(2) { grid-area: 1 / 3; }
+.gpu-disabled .dice-2d .face.left .pip:nth-child(3) { grid-area: 3 / 1; }
+.gpu-disabled .dice-2d .face.left .pip:nth-child(4) { grid-area: 3 / 3; }
+
+/* 5번 눈금 배치: 4개 모서리 + 중앙 */
+.gpu-disabled .dice-2d .face.bottom .pip:nth-child(1) { grid-area: 1 / 1; }
+.gpu-disabled .dice-2d .face.bottom .pip:nth-child(2) { grid-area: 1 / 3; }
+.gpu-disabled .dice-2d .face.bottom .pip:nth-child(3) { grid-area: 2 / 2; }
+.gpu-disabled .dice-2d .face.bottom .pip:nth-child(4) { grid-area: 3 / 1; }
+.gpu-disabled .dice-2d .face.bottom .pip:nth-child(5) { grid-area: 3 / 3; }
+
+/* 6번 눈금 배치: 2x3 격자 */
+.gpu-disabled .dice-2d .face.back .pip:nth-child(1) { grid-area: 1 / 1; }
+.gpu-disabled .dice-2d .face.back .pip:nth-child(2) { grid-area: 1 / 3; }
+.gpu-disabled .dice-2d .face.back .pip:nth-child(3) { grid-area: 2 / 1; }
+.gpu-disabled .dice-2d .face.back .pip:nth-child(4) { grid-area: 2 / 3; }
+.gpu-disabled .dice-2d .face.back .pip:nth-child(5) { grid-area: 3 / 1; }
+.gpu-disabled .dice-2d .face.back .pip:nth-child(6) { grid-area: 3 / 3; }
+
+/* 3. 컵 제스처 금지 커서 처리 */
+.gpu-disabled #dice-cup {
+    cursor: not-allowed !important;
+}
+
+
 
