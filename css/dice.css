@@ -1,0 +1,723 @@
+/* ==========================================
+   Yacht Dice - dice.css
+   ========================================== */
+
+/* 3 & 4. 주사위 트레이 및 주사위 통 보드 (우측 영역) */
+.dice-board {
+    flex: 0 0 1200px;
+    padding: 20px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    background: var(--panel-bg);
+    border-radius: 24px;
+    position: relative;
+}
+
+/* 정사각형 주사위 트레이 (960px * 960px) */
+.dice-tray {
+    width: 960px;
+    height: 960px;
+    flex: 0 0 960px;
+    background: radial-gradient(circle at 50% 50%, #201733 0%, #0d0914 100%);
+    border: 8px solid #241a36;
+    border-radius: 24px;
+    position: relative;
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.95),
+                0 0 20px rgba(157, 78, 221, 0.18),
+                0 8px 24px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    perspective: 800px;
+}
+
+/* 킵 가이드라인 영역 Y축 70%선 */
+.keep-zone-guide {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 288px;
+    border-top: 2px dashed rgba(255, 190, 11, 0.25);
+    background: linear-gradient(to top, rgba(255, 190, 11, 0.04) 0%, rgba(255, 190, 11, 0) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.keep-zone-guide span {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: rgba(255, 190, 11, 0.35);
+    letter-spacing: 5px;
+    text-shadow: 0 0 8px rgba(255, 190, 11, 0.1);
+    transform: translateY(120px);
+}
+
+/* 주사위 통 컨테이너 */
+.dice-cup-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    height: 960px;
+}
+
+/* 주사위 통 3D 래퍼 */
+.dice-cup-wrapper {
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+/* 주사위 통 (Dice Cup) 완벽 탑뷰 원통 디자인 */
+.dice-cup {
+    width: 140px;
+    height: 140px;
+    position: relative;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: none;
+    transform-style: preserve-3d;
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), 
+                filter 0.3s ease;
+    cursor: pointer;
+    z-index: 10;
+}
+
+/* 3D 레이어 래퍼 및 개별 레이어 */
+.cup-layers-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.cup-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    box-sizing: border-box;
+    outline: 1.2px solid #1b1330;
+    backface-visibility: visible;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* 탑뷰 전용 미래지향적 네온 원형 뚜껑 */
+.cup-lid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #24183a 0%, #0d0718 100%);
+    border: 3px solid var(--primary);
+    box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.8),
+                0 0 10px var(--primary-glow);
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.48s cubic-bezier(0.19, 1, 0.22, 1), 
+                opacity 0.4s ease;
+    pointer-events: auto;
+}
+
+.lid-inner {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    user-select: none;
+}
+
+.lid-logo {
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 3.5px;
+    background: linear-gradient(135deg, #00f5d4 0%, #9d4edd 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 8px rgba(0, 245, 212, 0.35));
+}
+
+.lid-sub {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+/* 뚜껑 내부 점선 회전 링 */
+.lid-border-glow {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    border: 1.5px dashed rgba(157, 78, 221, 0.38);
+    border-radius: 50%;
+    animation: rotateLidGlow 18s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes rotateLidGlow {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 컵 베젤 */
+.cup-bezel {
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    border: 4.5px solid #00f5d4;
+    border-radius: 50%;
+    box-shadow: 0 0 30px #00f5d4,
+                inset 0 0 15px #00f5d4;
+    pointer-events: none;
+    z-index: 6;
+    transition: opacity 0.3s ease;
+}
+
+/* 컵 내부 딥블랙 공간 */
+.cup-inner-space {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 124px;
+    height: 124px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 50%, #0d0718 35%, #020105 100%);
+    border: 2.5px solid rgba(0, 245, 212, 0.25);
+    box-shadow: inset 0 0 25px rgba(0, 0, 0, 1);
+    z-index: 2;
+    overflow: hidden;
+    transform-style: preserve-3d;
+}
+
+.dice-cup.pressed,
+.dice-cup.pouring-open {
+    z-index: 60;
+}
+
+.dice-cup.pressed .cup-lid,
+.dice-cup.pouring-open .cup-lid {
+    transform: scale(0.0) rotate(180deg);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.dice-cup.pouring .mini-dice-container,
+.dice-cup.pouring-open .mini-dice-container {
+    display: none !important;
+}
+
+.mini-dice-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+}
+
+/* 내부 미니 주사위 (22px 정육면체) */
+.mini-dice {
+    width: 22px;
+    height: 22px;
+    position: absolute;
+    left: 62px;
+    top: 62px;
+    margin-left: -11px;
+    margin-top: -11px;
+    transform-style: preserve-3d;
+    transition: none;
+}
+
+.mini-cube {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    transform-style: preserve-3d;
+}
+
+.mini-face {
+    position: absolute;
+    width: 101%;
+    height: 101%;
+    left: -0.5%;
+    top: -0.5%;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 55%),
+                linear-gradient(135deg, #3d2f5f 0%, #18112c 100%);
+    border: 1px solid rgba(255, 255, 255, 0.52);
+    border-radius: 4px;
+    display: grid;
+    grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+    padding: 3px;
+    backface-visibility: visible;
+    box-sizing: border-box;
+    box-shadow: inset 0 0 3px rgba(255, 255, 255, 0.15),
+                inset 1px 1px 2px rgba(255, 255, 255, 0.3),
+                inset -1px -1px 2px rgba(0, 0, 0, 0.65);
+}
+
+.mini-face.front  { transform: rotateY(0deg) translateZ(11px); }
+.mini-face.back   { transform: rotateY(180deg) translateZ(11px); }
+.mini-face.right  { transform: rotateY(90deg) translateZ(11px); }
+.mini-face.left   { transform: rotateY(-90deg) translateZ(11px); }
+.mini-face.top    { transform: rotateX(90deg) translateZ(11px); }
+.mini-face.bottom { transform: rotateX(-90deg) translateZ(11px); }
+
+.mini-pip {
+    display: block;
+    width: 3.5px;
+    height: 3.5px;
+    background: radial-gradient(circle at 35% 35%, #ffffff 0%, #bcaecc 100%);
+    border-radius: 50%;
+    align-self: center;
+    justify-self: center;
+    box-shadow: 0.5px 0.5px 1px rgba(0, 0, 0, 0.7);
+}
+
+.mini-face.front .mini-pip {
+    background: radial-gradient(circle at 35% 35%, #ff8fb0 0%, #ff007f 100%);
+    box-shadow: 0 0 4px rgba(255, 0, 127, 0.9);
+    width: 6.5px;
+    height: 6.5px;
+}
+
+/* 미니 주사위 눈금 그리드 매핑 */
+.mini-face.front { display: grid; justify-items: center; align-items: center; }
+.mini-face.front .mini-pip { grid-area: 2 / 2; }
+
+.mini-face.top .mini-pip:nth-child(1) { grid-area: 1 / 1; }
+.mini-face.top .mini-pip:nth-child(2) { grid-area: 3 / 3; }
+
+.mini-face.right .mini-pip:nth-child(1) { grid-area: 1 / 1; }
+.mini-face.right .mini-pip:nth-child(2) { grid-area: 2 / 2; }
+.mini-face.right .mini-pip:nth-child(3) { grid-area: 3 / 3; }
+
+.mini-face.left .mini-pip:nth-child(1) { grid-area: 1 / 1; }
+.mini-face.left .mini-pip:nth-child(2) { grid-area: 1 / 3; }
+.mini-face.left .mini-pip:nth-child(3) { grid-area: 3 / 1; }
+.mini-face.left .mini-pip:nth-child(4) { grid-area: 3 / 3; }
+
+.mini-face.bottom .mini-pip:nth-child(1) { grid-area: 1 / 1; }
+.mini-face.bottom .mini-pip:nth-child(2) { grid-area: 1 / 3; }
+.mini-face.bottom .mini-pip:nth-child(3) { grid-area: 2 / 2; }
+.mini-face.bottom .mini-pip:nth-child(4) { grid-area: 3 / 1; }
+.mini-face.bottom .mini-pip:nth-child(5) { grid-area: 3 / 3; }
+
+.mini-face.back .mini-pip:nth-child(1) { grid-area: 1 / 1; }
+.mini-face.back .mini-pip:nth-child(2) { grid-area: 1 / 3; }
+.mini-face.back .mini-pip:nth-child(3) { grid-area: 2 / 1; }
+.mini-face.back .mini-pip:nth-child(4) { grid-area: 2 / 3; }
+.mini-face.back .mini-pip:nth-child(5) { grid-area: 3 / 1; }
+.mini-face.back .mini-pip:nth-child(6) { grid-area: 3 / 3; }
+
+/* 2D 평면 흔들기 애니메이션 */
+@keyframes shake-cup {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    10% { transform: translate(-6px, -10px) rotate(-6deg); }
+    20% { transform: translate(8px, 6px) rotate(6deg); }
+    30% { transform: translate(-10px, -3px) rotate(-8deg); }
+    40% { transform: translate(12px, -8px) rotate(8deg); }
+    50% { transform: translate(-7px, 12px) rotate(-4deg); }
+    60% { transform: translate(8px, -12px) rotate(9deg); }
+    70% { transform: translate(-12px, 5px) rotate(-7deg); }
+    80% { transform: translate(10px, -6px) rotate(6deg); }
+    90% { transform: translate(-6px, 10px) rotate(-4deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+.dice-cup.shaking {
+    animation: shake-cup 0.2s linear infinite;
+}
+
+/* 3D 실린더 기울여 쏟는 애니메이션 */
+@keyframes pour-cup {
+    0% { transform: perspective(900px) translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1); }
+    30% { transform: perspective(900px) translate3d(-35px, -15px, 30px) rotateX(30deg) rotateY(-20deg) rotateZ(-15deg) scale(1.08); }
+    70% { transform: perspective(900px) translate3d(-70px, -30px, 60px) rotateX(60deg) rotateY(-45deg) rotateZ(-35deg) scale(1.15); }
+    100% { transform: perspective(900px) translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1); }
+}
+
+.dice-cup.pouring {
+    animation: pour-cup 1.1s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+.dice-slot {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    perspective: 600px;
+    z-index: 5;
+    margin-left: calc(-1 * var(--dice-size) / 2);
+    margin-top: calc(-1 * var(--dice-size) / 2);
+}
+
+.dice-slot.keep {
+    transition: left 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.15),
+                top 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.15),
+                transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.15);
+}
+
+/* 2D Fallback Glassmorphism Dice - Premium Classic White Theme */
+.dice-2d {
+    display: none;
+    width: var(--dice-size);
+    height: var(--dice-size);
+    position: relative;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #ffffff 0%, #f6f5f8 40%, #e8e6eb 100%) !important;
+    border: 2px solid rgba(0, 0, 0, 0.15) !important;
+    box-shadow: inset 1px 1px 3px rgba(255, 255, 255, 0.9),
+                inset -2px -2px 5px rgba(0, 0, 0, 0.15),
+                0 10px 15px rgba(0, 0, 0, 0.3) !important;
+    box-sizing: border-box;
+    justify-content: center;
+    align-items: center;
+}
+
+.dice-slot.keep .dice-2d {
+    background: linear-gradient(135deg, #ffffff 0%, #fffbf0 40%, #f5ecd2 100%) !important;
+    border: 3.5px solid var(--accent-gold) !important;
+    box-shadow: inset 1px 1px 3px rgba(255, 255, 255, 0.9),
+                inset -2px -2px 5px rgba(255, 190, 11, 0.15),
+                0 0 15px var(--accent-gold-glow),
+                0 8px 12px rgba(0, 0, 0, 0.35) !important;
+}
+
+.dice-slot.showcase .dice-2d {
+    transform: scale(1.28) !important;
+    filter: drop-shadow(0 22px 30px rgba(0, 0, 0, 0.8)) 
+            drop-shadow(0 0 30px rgba(0, 245, 212, 0.42)) !important;
+}
+
+@media (max-width: 480px) {
+    .dice-2d {
+        width: var(--dice-size-mobile);
+        height: var(--dice-size-mobile);
+    }
+}
+
+/* 3D Dice 렌더링 */
+.dice-3d {
+    width: var(--dice-size);
+    height: var(--dice-size);
+    position: relative;
+    transform-style: preserve-3d;
+    transition: none;
+    filter: drop-shadow(0 15px 18px rgba(0, 0, 0, 0.65)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.45));
+}
+
+.cube {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    transform-style: preserve-3d;
+    transition: none;
+}
+
+.face {
+    position: absolute;
+    width: 101%;
+    height: 101%;
+    left: -0.5%;
+    top: -0.5%;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 55%),
+                linear-gradient(135deg, #27203d 0%, #0f0a17 100%);
+    border: 2px solid rgba(255, 255, 255, 0.22);
+    border-radius: 16px;
+    display: grid;
+    grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+    padding: 12px;
+    backface-visibility: visible;
+    box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.08),
+                inset 3px 3px 7px rgba(255, 255, 255, 0.18),
+                inset -3px -3px 7px rgba(0, 0, 0, 0.55),
+                0 4px 10px rgba(0, 0, 0, 0.4);
+    box-sizing: border-box;
+}
+
+.face.front  { transform: rotateY(0deg) translateZ(calc(var(--dice-size) / 2)); }
+.face.back   { transform: rotateY(180deg) translateZ(calc(var(--dice-size) / 2)); }
+.face.right  { transform: rotateY(90deg) translateZ(calc(var(--dice-size) / 2)); }
+.face.left   { transform: rotateY(-90deg) translateZ(calc(var(--dice-size) / 2)); }
+.face.top    { transform: rotateX(90deg) translateZ(calc(var(--dice-size) / 2)); }
+.face.bottom { transform: rotateX(-90deg) translateZ(calc(var(--dice-size) / 2)); }
+
+.pip {
+    display: block;
+    width: 12px;
+    height: 12px;
+    background: radial-gradient(circle at 35% 35%, #ffffff 0%, #ece8f3 30%, #ab9ec1 70%, #584a70 100%);
+    border-radius: 50%;
+    align-self: center;
+    justify-self: center;
+    box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.55),
+                inset 0 -1.5px 2.5px rgba(0, 0, 0, 0.4),
+                0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+.face.front .pip {
+    background: radial-gradient(circle at 35% 35%, #ff8fb0 0%, #ff007f 40%, #cc0066 80%, #660033 100%);
+    box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.4),
+                0 0 15px rgba(255, 0, 127, 0.85),
+                0 3px 6px rgba(0, 0, 0, 0.5);
+    width: 21px;
+    height: 21px;
+}
+
+/* 주사위 눈금 그리드 배치 */
+.face.front,
+.face.back,
+.face.right,
+.face.left,
+.face.top,
+.face.bottom {
+    display: grid !important;
+    grid-template: repeat(3, 1fr) / repeat(3, 1fr) !important;
+}
+
+.face.front { justify-items: center; align-items: center; }
+.face.front .pip { grid-area: 2 / 2; }
+
+.face.top .pip:nth-child(1) { grid-area: 1 / 1; }
+.face.top .pip:nth-child(2) { grid-area: 3 / 3; }
+
+.face.right .pip:nth-child(1) { grid-area: 1 / 1; }
+.face.right .pip:nth-child(2) { grid-area: 2 / 2; }
+.face.right .pip:nth-child(3) { grid-area: 3 / 3; }
+
+.face.left .pip:nth-child(1) { grid-area: 1 / 1; }
+.face.left .pip:nth-child(2) { grid-area: 1 / 3; }
+.face.left .pip:nth-child(3) { grid-area: 3 / 1; }
+.face.left .pip:nth-child(4) { grid-area: 3 / 3; }
+
+.face.bottom .pip:nth-child(1) { grid-area: 1 / 1; }
+.face.bottom .pip:nth-child(2) { grid-area: 1 / 3; }
+.face.bottom .pip:nth-child(3) { grid-area: 2 / 2; }
+.face.bottom .pip:nth-child(4) { grid-area: 3 / 1; }
+.face.bottom .pip:nth-child(5) { grid-area: 3 / 3; }
+
+.face.back .pip:nth-child(1) { grid-area: 1 / 1; }
+.face.back .pip:nth-child(2) { grid-area: 1 / 3; }
+.face.back .pip:nth-child(3) { grid-area: 2 / 1; }
+.face.back .pip:nth-child(4) { grid-area: 2 / 3; }
+.face.back .pip:nth-child(5) { grid-area: 3 / 1; }
+.face.back .pip:nth-child(6) { grid-area: 3 / 3; }
+
+@media (max-width: 480px) {
+    .dice-3d {
+        width: var(--dice-size-mobile);
+        height: var(--dice-size-mobile);
+    }
+    .face.front  { transform: rotateY(0deg) translateZ(calc(var(--dice-size-mobile) / 2)); }
+    .face.back   { transform: rotateY(180deg) translateZ(calc(var(--dice-size-mobile) / 2)); }
+    .face.right  { transform: rotateY(90deg) translateZ(calc(var(--dice-size-mobile) / 2)); }
+    .face.left   { transform: rotateY(-90deg) translateZ(calc(var(--dice-size-mobile) / 2)); }
+    .face.top    { transform: rotateX(90deg) translateZ(calc(var(--dice-size-mobile) / 2)); }
+    .face.bottom { transform: rotateX(-90deg) translateZ(calc(var(--dice-size-mobile) / 2)); }
+    .pip {
+        width: 6px;
+        height: 6px;
+    }
+    .face.front .pip {
+        width: 10px;
+        height: 10px;
+    }
+}
+
+.dice-slot.keep .face {
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 55%),
+                linear-gradient(135deg, #ffd700 0%, #ffbe0b 50%, #997300 100%) !important;
+    border-color: rgba(255, 255, 255, 0.55) !important;
+    box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.4),
+                inset 3px 3px 6px rgba(255, 255, 255, 0.5),
+                inset -3px -3px 6px rgba(0, 0, 0, 0.6),
+                0 0 22px var(--accent-gold-glow),
+                0 6px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dice-slot.keep .cube {
+    transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1) !important;
+}
+
+.dice-slot.keep .pip {
+    background: radial-gradient(circle at 35% 35%, #ffffff 0%, #ece8f3 30%, #ab9ec1 70%, #584a70 100%) !important;
+    box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.7),
+                inset 0 -1.5px 2.5px rgba(0, 0, 0, 0.5),
+                0 0 4px rgba(255, 255, 255, 0.3) !important;
+}
+
+/* 쇼케이스 정렬 연출 */
+.dice-slot.showcase {
+    transition: left 0.65s cubic-bezier(0.19, 1, 0.22, 1),
+                top 0.65s cubic-bezier(0.19, 1, 0.22, 1),
+                transform 0.65s cubic-bezier(0.19, 1, 0.22, 1) !important;
+}
+
+.dice-slot.showcase .dice-3d {
+    transform: scale(1.28) !important;
+    filter: drop-shadow(0 22px 30px rgba(0, 0, 0, 0.8)) 
+            drop-shadow(0 0 30px rgba(0, 245, 212, 0.42)) !important;
+}
+
+.keep-badge {
+    opacity: 0;
+    transform: translateY(10px) scale(0.8);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    background: var(--accent-gold);
+    color: #0c0813;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 3px 8px rgba(255, 190, 11, 0.3);
+}
+
+.dice-slot.keep .keep-badge {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.rolling .cube {
+    transition: none !important;
+    animation: none !important;
+}
+
+/* 컨트롤러 영역 */
+.dice-controls {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* 흔들기 파워 게이지 컨테이너 */
+.shake-power-container {
+    width: 90%;
+    height: 14px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 7px;
+    overflow: hidden;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.4),
+                inset 0 1px 3px rgba(0, 0, 0, 0.5);
+    flex-shrink: 0;
+    opacity: 0;
+    transform: scaleX(0.95);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.shake-power-container.visible {
+    opacity: 1;
+    transform: scaleX(1);
+}
+
+/* 게이지 바 */
+.shake-power-bar {
+    height: 100%;
+    width: 0%;
+    border-radius: 7px;
+    background: linear-gradient(90deg, var(--accent-cyan) 0%, var(--accent-gold) 60%, var(--accent-pink) 100%);
+    box-shadow: 0 0 10px rgba(0, 245, 212, 0.6);
+    transition: background 0.1s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.shake-power-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 7px 7px 0 0;
+}
+
+/* 흔들기 안내 텍스트 */
+.shake-guide-text {
+    font-size: 0.82rem;
+    color: var(--accent-cyan);
+    text-align: center;
+    text-shadow: 0 0 8px var(--accent-cyan-glow);
+    letter-spacing: 0.5px;
+    font-weight: 500;
+    padding: 6px 10px;
+    animation: guide-pulse 2.5s ease-in-out infinite;
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+@keyframes guide-pulse {
+    0%, 100% { opacity: 0.6; text-shadow: 0 0 6px rgba(0, 245, 212, 0.3); }
+    50%       { opacity: 1;   text-shadow: 0 0 14px rgba(0, 245, 212, 0.8); }
+}
+
+.dice-cup.pressed {
+    filter: brightness(1.3) drop-shadow(0 0 18px rgba(157, 78, 221, 0.5));
+    cursor: grabbing !important;
+}
+
+.dice-cup {
+    cursor: grab;
+}
+
+.dice-cup.max-power {
+    filter: brightness(1.5) drop-shadow(0 0 12px var(--accent-pink));
+}
+
+/* ==========================================
+   2D Fallback Dice Eye (Pips) Overrides
+   - Ensure high visibility dark/red pips on white background
+   ========================================== */
+.dice-2d .pip {
+    background: radial-gradient(circle at 35% 35%, #494056 0%, #1e1726 100%) !important;
+    box-shadow: 0.5px 1px 1.5px rgba(0, 0, 0, 0.4),
+                inset 0 -0.5px 1px rgba(0, 0, 0, 0.6) !important;
+    width: 12px !important;
+    height: 12px !important;
+}
+
+.dice-2d .face.front .pip {
+    background: radial-gradient(circle at 35% 35%, #ff4d6d 0%, #d90429 100%) !important;
+    box-shadow: 0.5px 1px 2px rgba(217, 4, 41, 0.4),
+                inset 0 -1px 2px rgba(0, 0, 0, 0.4) !important;
+    width: 22px !important;
+    height: 22px !important;
+}
+
+/* 2D 주사위 면이 3D 주사위 회전 스타일(rotateX/Y 90deg)의 오버라이드로 인해 90도 꺾여 사라지는 현상 방지 */
+.dice-2d .face {
+    transform: none !important;
+}

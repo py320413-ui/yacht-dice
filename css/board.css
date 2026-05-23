@@ -1,0 +1,512 @@
+/* ==========================================
+   Yacht Dice - board.css
+   ========================================== */
+
+#game-view {
+    display: none;
+    width: 100%;
+    max-width: 1800px;
+    margin: 0 auto;
+    flex-direction: column;
+    gap: 20px;
+    animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 상단 헤더 전면 배치 */
+.game-header {
+    width: 100%;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 20px;
+}
+
+.header-left-actions {
+    display: flex;
+    align-items: center;
+    min-width: 150px;
+}
+
+.header-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    min-width: 150px;
+    justify-content: flex-end;
+}
+
+.network-room-header-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 10px rgba(0, 245, 212, 0.1);
+}
+
+.turn-indicator {
+    text-align: center;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.turn-indicator .turn-name {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--accent-cyan);
+    text-shadow: 0 0 12px var(--accent-cyan-glow);
+    letter-spacing: 0.5px;
+}
+
+.turn-indicator .turn-status {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+.roll-tracker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.roll-tracker span {
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+}
+
+.roll-tracker .dots {
+    display: flex;
+    gap: 5px;
+}
+
+.roll-tracker .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.roll-tracker .dot.active {
+    background: var(--accent-pink);
+    box-shadow: 0 0 10px var(--accent-pink),
+                0 0 4px rgba(255, 0, 127, 0.5);
+    border-color: #ff80bf;
+    transform: scale(1.15);
+}
+
+/* 가로 4분할 핵심 워크스페이스 */
+.game-workspace {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    width: 100%;
+    align-items: stretch;
+}
+
+/* 1. 게임 로그 및 채팅 (가장 왼쪽) */
+.sidebar-panel {
+    flex: 0 0 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.network-room-info {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.room-badge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.room-badge span.code {
+    font-family: monospace;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    letter-spacing: 1px;
+}
+
+.room-badge button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.room-badge button:hover {
+    color: var(--accent-cyan);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.peer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.peer-item {
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+}
+
+.peer-item.host::after {
+    content: "👑 HOST";
+    font-size: 0.65rem;
+    background: var(--accent-gold);
+    color: #0c0813;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-left: 4px;
+}
+
+.peer-item.connected::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    background: var(--accent-cyan);
+    border-radius: 50%;
+}
+
+/* Chat & Log Combined Panel */
+.panel-tab-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 380px;
+}
+
+.tab-header {
+    display: flex;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-btn.active {
+    color: var(--accent-cyan);
+    border-bottom: 2px solid var(--accent-cyan);
+}
+
+.tab-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 12px;
+    position: relative;
+}
+
+.tab-pane {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+}
+
+.tab-pane.active {
+    display: flex;
+}
+
+/* Log Pane styling */
+#log-messages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    max-height: 310px;
+}
+
+.log-entry {
+    line-height: 1.4;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.log-entry.turn-log {
+    color: var(--accent-cyan);
+}
+
+.log-entry.score-log {
+    color: var(--accent-pink);
+}
+
+.log-entry.system-log {
+    color: var(--accent-gold);
+}
+
+/* Chat Pane styling */
+#chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding-right: 4px;
+    max-height: 220px;
+}
+
+.chat-bubble {
+    max-width: 85%;
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-bubble .sender {
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin-bottom: 2px;
+    color: var(--accent-cyan);
+}
+
+.chat-bubble.other {
+    background: rgba(255, 255, 255, 0.04);
+    align-self: flex-start;
+    border-bottom-left-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.chat-bubble.me {
+    background: rgba(157, 78, 221, 0.15);
+    align-self: flex-end;
+    border-bottom-right-radius: 2px;
+    border: 1px solid rgba(157, 78, 221, 0.2);
+}
+
+.chat-bubble.me .sender {
+    color: var(--accent-pink);
+    align-self: flex-end;
+}
+
+/* Chat input bar */
+.chat-input-bar {
+    display: flex;
+    gap: 8px;
+}
+
+.chat-input-bar input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text-main);
+    font-size: 0.88rem;
+    outline: none;
+}
+
+.chat-input-bar input:focus {
+    border-color: var(--primary);
+}
+
+.emoji-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+    justify-content: flex-start;
+}
+
+.emoji-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 1.1rem;
+    cursor: pointer;
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.emoji-btn:hover {
+    background: rgba(157, 78, 221, 0.15);
+    border-color: var(--primary);
+    transform: scale(1.15);
+}
+
+/* 2. 점수판 테이블 (중앙 왼쪽) */
+.board-container {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    border-radius: 24px;
+}
+
+.score-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 420px;
+}
+
+.score-table th,
+.score-table td {
+    padding: 10px 14px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: 0.95rem;
+}
+
+.score-table th {
+    font-weight: 700;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.score-table th:first-child {
+    text-align: left;
+    border-top-left-radius: 12px;
+}
+.score-table th:last-child {
+    border-top-right-radius: 12px;
+}
+
+.score-table tr:hover td {
+    background: rgba(255, 255, 255, 0.015);
+}
+
+/* Category column (First column) */
+.category-cell {
+    text-align: left !important;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.category-cell span.desc {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+/* Score cell design */
+.score-cell {
+    font-weight: 700;
+    font-size: 1.1rem;
+    transition: all 0.2s ease;
+}
+
+/* Empty cells that player can pick */
+.score-cell.selectable {
+    color: var(--text-muted);
+    opacity: 0.45;
+    cursor: pointer;
+    background: rgba(157, 78, 221, 0.03);
+    border-radius: 6px;
+    border: 1px dashed rgba(157, 78, 221, 0.15);
+}
+
+.score-cell.selectable:hover {
+    opacity: 1;
+    color: var(--accent-cyan);
+    background: rgba(0, 245, 212, 0.08);
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 10px rgba(0, 245, 212, 0.15);
+    transform: scale(1.05);
+}
+
+/* Fixed recorded score */
+.score-cell.fixed {
+    color: var(--text-main);
+}
+
+.score-cell.fixed.active-user-score {
+    color: var(--accent-pink);
+    text-shadow: 0 0 8px rgba(255, 0, 127, 0.4);
+}
+
+/* Special rows (Bonus, Total) */
+.subtotal-row,
+.bonus-row,
+.total-row {
+    background: rgba(0, 0, 0, 0.25) !important;
+}
+
+.subtotal-row td,
+.bonus-row td,
+.total-row td {
+    border-top: 1.5px solid rgba(255, 255, 255, 0.08);
+    font-weight: 700 !important;
+}
+
+.subtotal-row td:first-child,
+.bonus-row td:first-child,
+.total-row td:first-child {
+    color: var(--accent-cyan);
+}
+
+.bonus-row td.bonus-cell.qualified {
+    color: var(--accent-gold) !important;
+    text-shadow: 0 0 8px var(--accent-gold-glow);
+}
+
+.total-row {
+    background: rgba(157, 78, 221, 0.08) !important;
+    border-bottom: 2px solid var(--primary) !important;
+}
+
+.total-row td {
+    font-size: 1.25rem !important;
+    color: var(--accent-cyan) !important;
+    text-shadow: 0 0 10px var(--accent-cyan-glow);
+}
+
+/* Current active player's column highlight */
+.active-player-col {
+    background: rgba(157, 78, 221, 0.06);
+    box-shadow: inset 0 0 10px rgba(157, 78, 221, 0.05);
+}
