@@ -897,13 +897,65 @@ function lerpAngle(current, target, t) {
     return current + diff * t;
 }
 
+// 임의의 3D 회전각을 -180도 ~ 180도 범위로 압축 정규화하는 헬퍼 함수
+function normalizeAngle180(angle) {
+    let a = angle % 360;
+    if (a < -180) a += 360;
+    if (a > 180) a -= 360;
+    return a;
+}
+
+// 현재의 누적 회전각과 가장 가까운 목표 등가 각도를 계산하는 정규화 함수 (역회전 튐 버그 완벽 방지)
+function getClosestEquivalentAngle(current, target) {
+    let diff = (target - current) % 360;
+    if (diff < -180) diff += 360;
+    if (diff > 180) diff -= 360;
+    return current + diff;
+}
+
+// 3D 기하학 기반 실시간 윗면 눈금 계산 함수 (탑뷰 시점 기준 Z축 법선 벡터 투영)
+function getVisibleFace(rx, ry) {
+    const radX = rx * Math.PI / 180;
+    const radY = ry * Math.PI / 180;
+
+    const cx = Math.cos(radX);
+    const sx = Math.sin(radX);
+    const cy = Math.cos(radY);
+    const sy = Math.sin(radY);
+
+    // 각 면의 Z 성분값 계산 (CSS preserve-3d 회전 변환 행렬 기반)
+    const z1 = cx * cy;
+    const z6 = -z1;
+    const z3 = cx * sy;
+    const z4 = -z3;
+    const z2 = sx;
+    const z5 = -z2;
+
+    const faces = [
+        { val: 1, z: z1 },
+        { val: 6, z: z6 },
+        { val: 3, z: z3 },
+        { val: 4, z: z4 },
+        { val: 2, z: z2 },
+        { val: 5, z: z5 }
+    ];
+
+    let maxFace = faces[0];
+    for (let i = 1; i < faces.length; i++) {
+        if (faces[i].z > maxFace.z) {
+            maxFace = faces[i];
+        }
+    }
+    return maxFace.val;
+}
+
 const physicsEngine = {
     running: false,
-    dicePhysics: [], // Array of { id, body: Matter.Body, isKept, cubeRot: {x, y} }
+    dicePhysics: [], // Array of { id, body: Matter.Body, isKept }
     animationId: null,
     trayWidth: 960,
     trayHeight: 960,
-    keepBoundaryY: 672, // 960px * 70% = 672px. Y축 70% 선이 킵 가이드라인 경계
+    keepBoundaryY: 672, // Y축 70% 선이 킵 가이드라인 경계
     radius: 52.5, // 주사위 반지름 (시각적 크기는 105px)
     
     // Matter.js 관련 인스턴스 보관용 속성
@@ -911,9 +963,9 @@ const physicsEngine = {
     world: null,
     
     // 튜닝 파라미터
-    bounce: 0.55,       // 벽면 탄성계수
-    diceBounce: 0.68,   // 주사위끼리 탄성계수
-    minVelocity: 0.55,  // 정지 판단 임계 속도 (선속도 0.55 미만)
+    bounce: 0.70,       // 벽면 탄성계수
+    diceBounce: 0.75,   // 주사위끼리 탄성계수
+    minVelocity: 0.12,  // 정지 판단 임계 속도
     lastHitSoundTime: 0,
 
     init(keptStates, shakePower = 50, launchOrigin = null) {
@@ -938,7 +990,7 @@ const physicsEngine = {
                 const rvx = bA.velocity.x - bB.velocity.x;
                 const rvy = bA.velocity.y - bB.velocity.y;
                 const speedSq = rvx * rvx + rvy * rvy;
-                if (speedSq > 0.8) {
+                if (speedSq > 1.2) {
                     this.playHitSound();
                 }
             });
@@ -949,7 +1001,7 @@ const physicsEngine = {
         const wallOptions = { 
             isStatic: true, 
             restitution: this.bounce, // 벽 탄성
-            friction: 0.1 
+            friction: 0.2 
         };
         
         // 왼쪽 벽
@@ -988,7 +1040,7 @@ const physicsEngine = {
         Matter.World.add(this.world, [leftWall, rightWall, topWall, bottomWall]);
 
         // 5. 5개 주사위 바디 생성 및 월드 추가
-        const powerScale = 0.6 + (shakePower / 100) * 1.2;
+        const powerScale = 0.6 + (shakePower / 100) * 1.35;
         const diceSize = 105;
 
         for (let i = 0; i < 5; i++) {
@@ -998,8 +1050,7 @@ const physicsEngine = {
                 this.dicePhysics.push({
                     id: i,
                     body: null,
-                    isKept: true,
-                    cubeRot: { x: 0, y: 0 }
+                    isKept: true
                 });
             } else {
                 let initX, initY, baseVx, baseVy;
@@ -1014,39 +1065,51 @@ const physicsEngine = {
                     initY = Math.max(this.radius + 15, Math.min(initY, this.keepBoundaryY - this.radius - 15));
                     
                     const targetX = 480;
-                    const targetY = 380;
+                    const targetY = 330;
                     const shootAngle = Math.atan2(targetY - initY, targetX - initX) + (Math.random() * 0.3 - 0.15);
-                    const speed = (26 + Math.random() * 12) * powerScale;
+                    const speed = (28 + Math.random() * 12) * powerScale;
                     
                     baseVx = Math.cos(shootAngle) * speed;
                     baseVy = Math.sin(shootAngle) * speed;
                 } else {
                     initX = 900;
                     initY = 80 + (i * 125);
-                    baseVx = -(30 + Math.random() * 15) * powerScale;
+                    baseVx = -(32 + Math.random() * 15) * powerScale;
                     baseVy = ((Math.random() * 26) - 13) * powerScale;
                 }
-                
-                const baseVAngle = ((Math.random() * 100) - 50) * powerScale;
 
-                // 주사위 물리 바디 생성 (완벽한 사각형 105px x 105px 기하학)
+                // 주사위 물리 바디 생성 (완벽한 사각형 105px x 105px 기하학 + 모서리 chamfer 적용)
                 const bodyOptions = {
+                    density: 0.002,
                     restitution: this.diceBounce, // 주사위끼리 탄성계수
-                    friction: 0.02,              // 접촉면 마찰계수
-                    frictionAir: 0.035,          // 공기저항 감속 효과
-                    mass: 1.0
+                    friction: 0.3,              // 접촉면 마찰계수
+                    frictionAir: 0.05,          // 공기저항 감속 효과
+                    chamfer: { radius: 12 },
+                    render: { visible: false }
                 };
                 const body = Matter.Bodies.rectangle(initX, initY, diceSize, diceSize, bodyOptions);
+                Matter.Body.setAngle(body, Math.random() * Math.PI * 2);
                 
                 // 초기 속도 및 각속도 적용 (라디안 단위 변환 필수)
                 Matter.Body.setVelocity(body, { x: baseVx, y: baseVy });
-                Matter.Body.setAngularVelocity(body, baseVAngle * (Math.PI / 180));
+                Matter.Body.setAngularVelocity(body, (Math.random() > 0.5 ? 1 : -1) * (0.35 + Math.random() * 0.35));
+
+                // 3D 회전 각도 및 텀블링 속도를 Matter.js 바디의 plugin 객체에 바인딩
+                body.plugin = {
+                    isDice: true,
+                    rx: [0, 90, 180, 270][Math.floor(Math.random() * 4)],
+                    ry: [0, 90, 180, 270][Math.floor(Math.random() * 4)],
+                    rxVel: (Math.random() - 0.5) * 85 * powerScale,
+                    ryVel: (Math.random() - 0.5) * 85 * powerScale,
+                    isSettled: false,
+                    targetRx: null,
+                    targetRy: null
+                };
 
                 this.dicePhysics.push({
                     id: i,
                     body: body,
-                    isKept: false,
-                    cubeRot: { x: Math.random() * 360, y: Math.random() * 360 }
+                    isKept: false
                 });
                 
                 Matter.World.add(this.world, body);
@@ -1054,41 +1117,98 @@ const physicsEngine = {
         }
     },
 
-    start(onComplete) {
+    start(onComplete, forcedValues = null) {
         if (this.running) return;
         this.running = true;
         
         const loop = () => {
             if (!this.running) return;
             this.update();
-            this.render();
 
-            // 킵되지 않은 모든 주사위 바디가 정지했는지 검증
             let allStopped = true;
-            this.dicePhysics.forEach(d => {
-                if (!d.isKept && d.body) {
-                    const vx = d.body.velocity.x;
-                    const vy = d.body.velocity.y;
-                    const speed = Math.sqrt(vx * vx + vy * vy);
-                    
-                    // 선속도와 각속도가 모두 임계치 이하가 되어야 최종 멈춘 것으로 판정
-                    if (speed > this.minVelocity || Math.abs(d.body.angularVelocity) > 0.008) {
-                        allStopped = false;
+            let allSettled = true;
+
+            this.dicePhysics.forEach((d, i) => {
+                if (d.isKept || !d.body) return;
+
+                const body = d.body;
+                const p = body.plugin;
+
+                // 속도 및 물리 회전력 기반 움직임 여부(비행 텀블링 단계 여부) 선제 판정
+                const phyMoving = body.speed > this.minVelocity || Math.abs(body.angularSpeed) > 0.06;
+                const rotMoving = Math.abs(p.rxVel) > 0.4 || Math.abs(p.ryVel) > 0.4;
+                const isMoving  = phyMoving || rotMoving;
+
+                // 3D 회전각 실시간 연속(Continuous) 누적
+                p.rx += p.rxVel;
+                p.ry += p.ryVel;
+
+                // [하이브리드 정렬 복원 토크 융합 물리 모델]
+                // 주사위가 텀블링할 때는 자유 회전하며 3D 입체감을 보여주다가,
+                // 물리 속도가 줄어드는 감속 구간(body.speed < 4.0)에 진입하면
+                // 윗면 점수 판정을 미리 Lock하고 그 윗면 정각을 향해 가상의 3D 바닥 안착 복원 토크(Torsional Spring)를 인가합니다.
+                // 이를 통해 주사위가 멈출 때 억지로 휙 돌며 보간되는 것이 아니라,
+                // 현실처럼 구르는 도중 자연스럽게 면 방향으로 평평하게 유도되며 턱! 멈추게 됩니다.
+                if (body.speed < 4.0) {
+                    if (p.targetRx === undefined || p.targetRx === null) {
+                        if (forcedValues && forcedValues[i]) {
+                            state.dice[i].value = forcedValues[i];
+                        } else {
+                            state.dice[i].value = getVisibleFace(p.rx, p.ry);
+                        }
+                        
+                        const targetRot = DICE_ROTATIONS[state.dice[i].value] || { x: 0, y: 0 };
+                        p.targetRx = getClosestEquivalentAngle(p.rx, targetRot.x);
+                        p.targetRy = getClosestEquivalentAngle(p.ry, targetRot.y);
                     }
+
+                    // 복원 토크(Spring force) 및 감쇄 마찰 융합
+                    const torqueX = (p.targetRx - p.rx) * 0.16;
+                    const torqueY = (p.targetRy - p.ry) * 0.16;
+                    
+                    p.rxVel = p.rxVel * 0.80 + torqueX * 0.20;
+                    p.ryVel = p.ryVel * 0.80 + torqueY * 0.20;
+                } else {
+                    // 고속 비행 텀블링 구역: 자유 감속 회전 및 안착 타겟 초기화
+                    p.rxVel *= 0.955;
+                    p.ryVel *= 0.955;
+                    p.targetRx = null;
+                    p.targetRy = null;
+                }
+
+                // [정지 완료 판정]
+                // 1) 2D 물리 바디가 완전히 정지 (speed < minVelocity)
+                // 2) 3D 큐브 각도가 복원 토크에 의해 타겟 안착 각도에 0.5도 이내로 조밀하게 정착(Settled)함
+                if (!isMoving) {
+                    if (p.targetRx !== null && p.targetRx !== undefined) {
+                        const diffX = Math.abs(p.targetRx - p.rx);
+                        const diffY = Math.abs(p.targetRy - p.ry);
+                        if (diffX < 0.5 && diffY < 0.5) {
+                            p.rx = p.targetRx;
+                            p.ry = p.targetRy;
+                            p.rxVel = 0;
+                            p.ryVel = 0;
+                            p.isSettled = true;
+                        } else {
+                            p.isSettled = false;
+                        }
+                    } else {
+                        p.isSettled = false;
+                    }
+                } else {
+                    allStopped = false;
+                    p.isSettled = false;
+                }
+
+                if (!p.isSettled) {
+                    allSettled = false;
                 }
             });
 
-            if (allStopped) {
-                // 1. 최종 정지 시점 3D 각도 고정 (눈금 정합성 보장)
-                this.dicePhysics.forEach((d, i) => {
-                    if (d.isKept) return;
-                    const diceValue = state.dice[i].value;
-                    const targetRot = DICE_ROTATIONS[diceValue] || { x: 0, y: 0 };
-                    d.cubeRot.x = targetRot.x;
-                    d.cubeRot.y = targetRot.y;
-                });
+            this.render();
 
-                // 2. 최종 렌더링 강제 적용하여 오차 0% 정렬 완성
+            if (allStopped && allSettled) {
+                // 최종 정지 강제 정렬 동기화
                 this.render(true);
                 this.stop();
                 
@@ -1111,10 +1231,10 @@ const physicsEngine = {
 
     update() {
         if (!this.engine) return;
-        // Matter.js 엔진 프레임 진행 (60fps 고정 타임스텝)
+        // Matter.js 엔진 프레임 업데이트 (60fps 고정 타임스텝)
         Matter.Engine.update(this.engine, 1000 / 60);
 
-        // 추가 벽면 관통 방어 안전 장치 (혹시나 속도가 과도하여 뚫고 나가려는 기현상 방지)
+        // 추가 벽면 관통 방어 안전 장치
         this.dicePhysics.forEach(d => {
             if (d.isKept || !d.body) return;
             const b = d.body;
@@ -1150,45 +1270,34 @@ const physicsEngine = {
             slot.style.opacity = '1';
             slot.style.pointerEvents = 'auto';
 
-            // Matter.js body 좌표 및 Z축 회전 각도(라디안 -> 디그리) 대입
-            const x = d.body.position.x;
-            const y = d.body.position.y;
+            const pos = d.body.position;
+            // Z축 평면 회전각도 매 프레임 normalizeAngle180을 적용하면 경계선에서 툭 튀는 현상이 생기므로
+            // 물리 렌더 프레임 동안에는 누적 각도를 그대로 부드럽게 투영시킵니다.
             const angleDeg = d.body.angle * (180 / Math.PI);
-            
-            slot.style.left = `${x}px`;
-            slot.style.top = `${y}px`;
-            slot.style.transform = `rotateZ(${angleDeg}deg)`;
+            const p = d.body.plugin;
 
-            // 3D 큐브 스핀 연출 연동
+            // DOM 2D 위치 및 회전각 투영
+            slot.style.left = `${pos.x}px`;
+            slot.style.top = `${pos.y}px`;
+            slot.style.transform = `rotateZ(${angleDeg.toFixed(2)}deg)`;
+
+            // cube DOM 3D 회전각 투영
             const cube = document.getElementById(`cube-${i}`);
             if (cube) {
-                const diceValue = state.dice[i].value;
-                const targetRot = DICE_ROTATIONS[diceValue] || { x: 0, y: 0 };
-
-                if (isFinal) {
-                    d.cubeRot.x = targetRot.x;
-                    d.cubeRot.y = targetRot.y;
-                } else {
-                    const vx = d.body.velocity.x;
-                    const vy = d.body.velocity.y;
-                    const speed = Math.sqrt(vx * vx + vy * vy);
-                    const rollSpeedFactor = 3.5;
-
-                    if (speed >= 7.0) {
-                        d.cubeRot.x += vy * rollSpeedFactor;
-                        d.cubeRot.y += vx * rollSpeedFactor;
-                    } else {
-                        d.cubeRot.x += vy * rollSpeedFactor * 0.05;
-                        d.cubeRot.y += vx * rollSpeedFactor * 0.05;
-
-                        // 정지할수록 타겟 각도에 강력하게 정렬 Lerp
-                        const t = Math.max(0.08, Math.min(0.42, (7.0 - speed) / (7.0 - this.minVelocity)));
-                        d.cubeRot.x = lerpAngle(d.cubeRot.x, targetRot.x, t);
-                        d.cubeRot.y = lerpAngle(d.cubeRot.y, targetRot.y, t);
-                    }
+                if (isFinal && p.targetRx !== null && p.targetRx !== undefined) {
+                    p.rx = p.targetRx;
+                    p.ry = p.targetRy;
                 }
+                cube.style.transform = `rotateX(${p.rx.toFixed(1)}deg) rotateY(${p.ry.toFixed(1)}deg)`;
+            }
 
-                cube.style.transform = `rotateX(${d.cubeRot.x}deg) rotateY(${d.cubeRot.y}deg)`;
+            // 움직이는 주사위 그림자 강조 디테일
+            const isMoving = !p.isSettled;
+            const dice3d = slot.querySelector('.dice-3d');
+            if (dice3d) {
+                dice3d.style.filter = isMoving
+                    ? 'drop-shadow(6px 12px 16px rgba(0,0,0,.68))'
+                    : 'drop-shadow(2px 4px 6px rgba(0,0,0,.45))';
             }
         });
     },
@@ -1391,6 +1500,11 @@ function toggleDiceKeep(index) {
 
     state.dice[index].kept = !state.dice[index].kept;
     soundEngine.playKeep();
+    
+    // [중앙 정렬 쇼케이스 동적 재계산]
+    // 킵을 켜고 끌 때마다 트레이 안의 활성 주사위들을 수평 중앙에 맞추어 예쁘게 자동 정렬시킵니다!
+    arrangeActiveDiceInLine();
+    
     renderDice();
     
     // Broadcast keep status in online multiplayer
@@ -1495,6 +1609,7 @@ function renderDice() {
         
         // Render kept badge and styling
         if (d.kept) {
+            slot.classList.remove('showcase');
             slot.classList.add('keep');
             slot.style.display = 'flex';
             slot.style.opacity = '1';
@@ -1513,6 +1628,7 @@ function renderDice() {
             const shouldHide = (state.rollCount === 3) || (state.isRolling && !physicsEngine.running);
             
             if (shouldHide) {
+                slot.classList.remove('showcase');
                 slot.style.display = 'none';
                 slot.style.opacity = '0';
                 slot.style.pointerEvents = 'none';
@@ -1520,6 +1636,13 @@ function renderDice() {
                 slot.style.display = 'flex';
                 slot.style.opacity = '1';
                 slot.style.pointerEvents = 'auto';
+                
+                // [프리미엄 쇼케이스 연출] 롤 완료되어 정지한 정착 단계일 때 1.28배 확대 및 네온 글로우 클래스 추가
+                if (!state.isRolling && state.rollCount < 3) {
+                    slot.classList.add('showcase');
+                } else {
+                    slot.classList.remove('showcase');
+                }
                 
                 // 킵 해제/기본 상태: 트레이 내 무작위 좌표 및 삐딱한 각도 부여
                 if (d.randomTop === undefined) {
@@ -1535,9 +1658,12 @@ function renderDice() {
         }
         
         if (!state.isRolling && cube) {
-            // Apply correct face rotations
-            const rot = DICE_ROTATIONS[d.value];
-            cube.style.transform = `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`;
+            // 물리 엔진이 완전히 멈춰놓은 정밀한 3D 각도를 유지하기 위해 정지 시 덮어쓰지 않고 그대로 박제합니다.
+            // 단, 턴이 완전히 새로 시작하여 초기화되거나(rollCount === 3) 킵된 주사위인 경우에만 예쁘게 정각 정렬을 수행합니다.
+            if (state.rollCount === 3 || d.kept) {
+                const rot = DICE_ROTATIONS[d.value];
+                cube.style.transform = `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`;
+            }
         }
     });
 }
@@ -1603,28 +1729,21 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
         // 쏟는 비주얼 액션이 약간 시작된 시점인 0.15초 뒤에 주사위를 물리 엔진에 투입하여 날아가게 합니다.
         setTimeout(() => {
             const slots = document.querySelectorAll('.dice-slot');
-            const targetValues = [];
             
-            // 킵되지 않은 주사위들의 목표값(눈) 선결정
+            // 킵되지 않은 주사위들 롤 상태로 마킹 및 강제 결과값 동기화 설정
             state.dice.forEach((d, i) => {
-                if (d.kept) {
-                    targetValues.push(d.value);
-                    return;
+                if (d.kept) return;
+                
+                // 만약 멀티플레이 강제 결과값이 있다면 그 값을 미리 대입
+                if (forcedValues) {
+                    d.value = forcedValues[i];
                 }
-                const nextVal = forcedValues ? forcedValues[i] : Math.floor(Math.random() * 6) + 1;
-                targetValues.push(nextVal);
-                d.value = nextVal;
                 
                 const slot = slots[i];
                 if (slot) {
                     slot.classList.add('rolling');
                 }
             });
-
-            // 온라인 멀티 동기화
-            if (state.gameMode === 'online' && !forcedValues && window.networkController) {
-                window.networkController.sendRoll(state.dice.map(d => d.value));
-            }
 
             // [드래그 릴리즈 전용] 컵의 정확한 릴리즈 좌표를 계산하여 주사위 발사 좌표로 지정
             const tray = document.getElementById('dice-tray');
@@ -1687,25 +1806,37 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
                     // 정지한 물리 좌표를 백업 좌표로 변환하여 보존 (킵 풀었을 때 그 자리로 돌아가기 위함)
                     if (!d.kept) {
                         const phys = physicsEngine.dicePhysics[i];
-                        d.randomLeft = `${phys.x}px`;
-                        d.randomTop = `${phys.y}px`;
-                        d.randomAngle = phys.angle;
+                        if (phys && phys.body) {
+                            d.randomLeft = `${phys.body.position.x}px`;
+                            d.randomTop = `${phys.body.position.y}px`;
+                            d.randomAngle = normalizeAngle180(phys.body.angle * (180 / Math.PI));
+                        }
                     }
                 });
 
-                // [추가] 킵 해제된 활성 주사위들을 수평 한 줄로 완벽하게 자동 정렬
-                arrangeActiveDiceInLine();
+                // [보완] 굴러가는 모습을 끝까지 완벽하게 보이도록 억지 일렬 순간이동 정렬(arrangeActiveDiceInLine)을 수행하지 않고, 물리가 착지한 그 자연스러운 위치 그대로 유지합니다.
+                // arrangeActiveDiceInLine();
+
+                // 온라인 멀티 동기화 (물리가 끝나고 동적으로 확정된 주사위 값 전송!)
+                if (state.gameMode === 'online' && !forcedValues && window.networkController) {
+                    window.networkController.sendRoll(state.dice.map(d => d.value));
+                }
 
                 // 3. 상태 정리 및 화면 최종 정돈
                 state.isRolling = false;
                 soundEngine.playDiceHit(); // 최종 착지음
                 
-                renderDice();
+                // [프리미엄 연출] 주사위 물리 안착 후 0.25초 뒤에 가로 정중앙 일렬 정렬 및 확대(Showcase) 상태를 트리거합니다.
+                setTimeout(() => {
+                    arrangeActiveDiceInLine();
+                    renderDice();
+                    
+                    // 정렬 및 확대 연출이 완전히 시작된 직후 상위 족보 축하 팝업 및 오디오 연출 트리거
+                    checkCombinationCelebrate();
+                }, 250);
+                
                 renderScoreboard();
                 updateRollTrackerUI(); // 롤 횟수 버튼 잠금 해제 체크
-
-                // [추가] 물리 구르기가 정지하고 화면 렌더 완료 후 상위 족보 축하 팝업 및 오디오 연출 트리거
-                checkCombinationCelebrate();
 
                 // 상태 표시 메시지 업데이트
                 if (state.rollCount === 0) {
@@ -1721,7 +1852,7 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
                 } else if (active.isAI && state.rollCount === 0) {
                     setTimeout(aiDecideScore, 2500);
                 }
-            });
+            }, forcedValues);
 
         }, 150); // 쏟기 액션 0.15초 후 주사위 분사
         
@@ -1743,28 +1874,21 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
             // 흔들기 시작 후 0.8초 시점(즉, 쏟기 개시 0.2초 후)에 주사위 발사 및 물리 엔진 개시
             setTimeout(() => {
                 const slots = document.querySelectorAll('.dice-slot');
-                const targetValues = [];
                 
-                // 킵되지 않은 주사위들의 목표값(눈) 선결정
+                // 킵되지 않은 주사위들 롤 상태로 마킹 및 강제 결과값 동기화 설정
                 state.dice.forEach((d, i) => {
-                    if (d.kept) {
-                        targetValues.push(d.value);
-                        return;
+                    if (d.kept) return;
+                    
+                    // 만약 멀티플레이 강제 결과값이 있다면 그 값을 미리 대입
+                    if (forcedValues) {
+                        d.value = forcedValues[i];
                     }
-                    const nextVal = forcedValues ? forcedValues[i] : Math.floor(Math.random() * 6) + 1;
-                    targetValues.push(nextVal);
-                    d.value = nextVal;
                     
                     const slot = slots[i];
                     if (slot) {
                         slot.classList.add('rolling');
                     }
                 });
-
-                // 온라인 멀티 동기화
-                if (state.gameMode === 'online' && !forcedValues && window.networkController) {
-                    window.networkController.sendRoll(state.dice.map(d => d.value));
-                }
 
                 // 물리 시뮬레이션 모델 초기화 (shakePower 전달)
                 physicsEngine.init(state.dice.map(d => d.kept), shakePower);
@@ -1809,25 +1933,37 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
                         // 정지한 물리 좌표를 백업 좌표로 변환하여 보존 (킵 풀었을 때 그 자리로 돌아가기 위함)
                         if (!d.kept) {
                             const phys = physicsEngine.dicePhysics[i];
-                            d.randomLeft = `${phys.x}px`;
-                            d.randomTop = `${phys.y}px`;
-                            d.randomAngle = phys.angle;
+                            if (phys && phys.body) {
+                                d.randomLeft = `${phys.body.position.x}px`;
+                                d.randomTop = `${phys.body.position.y}px`;
+                                d.randomAngle = normalizeAngle180(phys.body.angle * (180 / Math.PI));
+                            }
                         }
                     });
 
-                    // [추가] 킵 해제된 활성 주사위들을 수평 한 줄로 완벽하게 자동 정렬
-                    arrangeActiveDiceInLine();
+                    // [보완] 굴러가는 모습을 끝까지 완벽하게 보이도록 억지 일렬 순간이동 정렬(arrangeActiveDiceInLine)을 수행하지 않고, 물리가 착지한 그 자연스러운 위치 그대로 유지합니다.
+                    // arrangeActiveDiceInLine();
+
+                    // 온라인 멀티 동기화 (물리가 끝나고 동적으로 확정된 주사위 값 전송!)
+                    if (state.gameMode === 'online' && !forcedValues && window.networkController) {
+                        window.networkController.sendRoll(state.dice.map(d => d.value));
+                    }
 
                     // 3. 상태 정리 및 화면 최종 정돈
                     state.isRolling = false;
                     soundEngine.playDiceHit(); // 최종 착지음
                     
-                    renderDice();
+                    // [프리미엄 연출] 주사위 물리 안착 후 0.25초 뒤에 가로 정중앙 일렬 정렬 및 확대(Showcase) 상태를 트리거합니다.
+                    setTimeout(() => {
+                        arrangeActiveDiceInLine();
+                        renderDice();
+                        
+                        // 정렬 및 확대 연출이 완전히 시작된 직후 상위 족보 축하 팝업 및 오디오 연출 트리거
+                        checkCombinationCelebrate();
+                    }, 250);
+                    
                     renderScoreboard();
                     updateRollTrackerUI(); // 롤 횟수 버튼 잠금 해제 체크
-
-                    // [추가] 물리 구르기가 정지하고 화면 렌더 완료 후 상위 족보 축하 팝업 및 오디오 연출 트리거
-                    checkCombinationCelebrate();
 
                     // 상태 표시 메시지 업데이트
                     if (state.rollCount === 0) {
@@ -1843,7 +1979,7 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
                     } else if (active.isAI && state.rollCount === 0) {
                         setTimeout(aiDecideScore, 2500);
                     }
-                });
+                }, forcedValues);
 
             }, 200); // 쉐이킹 시작 시점 기준 총 0.8초 후 주사위 분사
 
@@ -2573,7 +2709,7 @@ function arrangeActiveDiceInLine() {
 
     // 960px * 960px 트레이
     const diceSize = 105;
-    const gap = 38; // 넉넉하게 38px 간격
+    const gap = 64; // [조정] 쇼케이스 1.28배 확대 시의 가로 반지름 증가폭(29.4px)을 감안하여 기존 38px에서 64px로 시원하게 확대!
     const trayWidth = 960;
     
     // 수평 정렬을 위한 총 가로 폭 계산

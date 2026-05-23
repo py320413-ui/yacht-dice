@@ -767,7 +767,7 @@ body {
     height: var(--dice-size);
     position: relative;
     transform-style: preserve-3d;
-    transition: transform 0.15s ease;
+    transition: none; /* 상시 0.15초 transition을 완전히 차단하여 롤링 정지 직후 부모 2D/3D 시점 갱신 시의 브라우저 3D 왜곡 착시(휘리릭) 원천 방지 */
     filter: drop-shadow(0 15px 18px rgba(0, 0, 0, 0.65)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.45));
 }
 
@@ -777,7 +777,7 @@ body {
     height: 100%;
     position: absolute;
     transform-style: preserve-3d;
-    transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+    transition: none; /* 상시 transition을 비활성화하여 롤 완료 후의 Perspective 왜곡/휘리릭 도는 버그 원천 방지 */
 }
 
 .face {
@@ -895,6 +895,11 @@ body {
                 0 6px 12px rgba(0, 0, 0, 0.5) !important;
 }
 
+/* 킵 상태 시에만 부드러운 정각 정렬 보간을 위해 transition 한정 활성화 */
+.dice-slot.keep .cube {
+    transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1) !important;
+}
+
 .dice-slot.keep .pip {
     background: radial-gradient(circle at 35% 35%, #ffffff 0%, #ece8f3 30%, #ab9ec1 70%, #584a70 100%) !important;
     box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.7),
@@ -903,6 +908,18 @@ body {
 }
 
 /* KEEP Badge */
+.dice-slot.showcase {
+    transition: left 0.65s cubic-bezier(0.19, 1, 0.22, 1),
+                top 0.65s cubic-bezier(0.19, 1, 0.22, 1),
+                transform 0.65s cubic-bezier(0.19, 1, 0.22, 1) !important;
+}
+
+.dice-slot.showcase .dice-3d {
+    transform: scale(1.28) !important;
+    filter: drop-shadow(0 22px 30px rgba(0, 0, 0, 0.8)) 
+            drop-shadow(0 0 30px rgba(0, 245, 212, 0.42)) !important;
+}
+
 .keep-badge {
     opacity: 0;
     transform: translateY(10px) scale(0.8);
@@ -922,19 +939,10 @@ body {
     transform: translateY(0) scale(1);
 }
 
-/* Rolling animations */
-@keyframes roll-anim {
-    0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg) translateY(0); }
-    15% { transform: rotateX(360deg) rotateY(180deg) rotateZ(90deg) translateY(-40px) scale(1.15); }
-    30% { transform: rotateX(720deg) rotateY(450deg) rotateZ(180deg) translateY(-60px) scale(1.2); }
-    45% { transform: rotateX(1080deg) rotateY(630deg) rotateZ(360deg) translateY(-40px) scale(1.15); }
-    70% { transform: rotateX(1440deg) rotateY(900deg) rotateZ(540deg) translateY(-10px) scale(1.05); }
-    85% { transform: rotateX(1620deg) rotateY(990deg) rotateZ(630deg) translateY(-2px) scale(1.02); }
-    100% { transform: rotateX(1800deg) rotateY(1080deg) rotateZ(720deg) translateY(0); }
-}
-
+/* Rolling animations - 리얼 물리 엔진 각도 적용을 위해 레거시 애니메이션 비활성화 및 transition 제거 */
 .rolling .cube {
-    animation: roll-anim 1.2s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+    transition: none !important;
+    animation: none !important;
 }
 
 /* 컨트롤러 영역 */
