@@ -714,6 +714,7 @@ function setupShakeGesture() {
             if (!d.kept) {
                 const slot = slots[i];
                 if (slot) {
+                    slot.classList.remove('showcase');
                     slot.style.display = 'none';
                     slot.style.opacity = '0';
                     slot.style.pointerEvents = 'none';
@@ -1952,6 +1953,7 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
         if (!d.kept) {
             const slot = slots[i];
             if (slot) {
+                slot.classList.remove('showcase');
                 slot.style.display = 'none';
                 slot.style.opacity = '0';
                 slot.style.pointerEvents = 'none';
