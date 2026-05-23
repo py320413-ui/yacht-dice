@@ -708,6 +708,19 @@ function setupShakeGesture() {
         cup.classList.add('pressed');
         cup.classList.remove('max-power', 'shaking', 'pouring');
 
+        // [컵 누른 시점] 테이블 위 일자 정렬 주사위들 사라지기
+        const slots = document.querySelectorAll('.dice-slot');
+        state.dice.forEach((d, i) => {
+            if (!d.kept) {
+                const slot = slots[i];
+                if (slot) {
+                    slot.style.display = 'none';
+                    slot.style.opacity = '0';
+                    slot.style.pointerEvents = 'none';
+                }
+            }
+        });
+
         cup.style.left = '0px';
         cup.style.top = '0px';
 
@@ -1932,6 +1945,19 @@ function executeDiceRoll(forcedValues = null, shakePower = 50, isDragRelease = f
     state.isRolling = true;
     state.rollCount--;
     updateRollTrackerUI();
+    
+    // [롤링 시작] 이전 롤에서 남아있던 킵되지 않은 주사위들을 모두 숨김
+    const slots = document.querySelectorAll('.dice-slot');
+    state.dice.forEach((d, i) => {
+        if (!d.kept) {
+            const slot = slots[i];
+            if (slot) {
+                slot.style.display = 'none';
+                slot.style.opacity = '0';
+                slot.style.pointerEvents = 'none';
+            }
+        }
+    });
     
     // GPU 하드웨어 가속이 꺼진 경우, CPU-Friendly 초경량 2D 우회 모드로 분기!
     if (!state.gpuAccelerated) {
