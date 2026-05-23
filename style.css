@@ -761,6 +761,51 @@ body {
                 transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.15);
 }
 
+/* 2D Fallback Glassmorphism Dice (하드웨어 가속 꺼짐 대비 모드) */
+.dice-2d {
+    display: none; /* 디폴트는 숨김 */
+    width: var(--dice-size);
+    height: var(--dice-size);
+    position: relative;
+    border-radius: 16px;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 55%),
+                linear-gradient(135deg, #27203d 0%, #0f0a17 100%);
+    border: 2px solid rgba(255, 255, 255, 0.22);
+    box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.08),
+                inset 3px 3px 7px rgba(255, 255, 255, 0.18),
+                inset -3px -3px 7px rgba(0, 0, 0, 0.55),
+                0 15px 18px rgba(0, 0, 0, 0.65), 0 4px 6px rgba(0, 0, 0, 0.45);
+    box-sizing: border-box;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 2D 주사위 킵(KEEP) 상태 색상 전환 */
+.dice-slot.keep .dice-2d {
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 55%),
+                linear-gradient(135deg, #ffd700 0%, #ffbe0b 50%, #997300 100%) !important;
+    border-color: rgba(255, 255, 255, 0.55) !important;
+    box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.4),
+                inset 3px 3px 6px rgba(255, 255, 255, 0.5),
+                inset -3px -3px 6px rgba(0, 0, 0, 0.6),
+                0 0 22px var(--accent-gold-glow),
+                0 6px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 쇼케이스 정렬 시 2D 주사위 동일한 1.28배 확대 및 청록 네온 아우라 부여 */
+.dice-slot.showcase .dice-2d {
+    transform: scale(1.28) !important;
+    filter: drop-shadow(0 22px 30px rgba(0, 0, 0, 0.8)) 
+            drop-shadow(0 0 30px rgba(0, 245, 212, 0.42)) !important;
+}
+
+@media (max-width: 480px) {
+    .dice-2d {
+        width: var(--dice-size-mobile);
+        height: var(--dice-size-mobile);
+    }
+}
+
 /* Dice 3D wrapper */
 .dice-3d {
     width: var(--dice-size);

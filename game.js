@@ -19,7 +19,8 @@ const state = {
     rollCount: 3, // Remaining rolls (3 -> 2 -> 1 -> 0)
     currentRound: 1, // Round 1 to 12
     soundEnabled: true,
-    isRolling: false
+    isRolling: false,
+    gpuAccelerated: true // 하드웨어 가속 감지 상태값 디폴트 추가
 };
 
 // Yacht Dice Categories
@@ -345,6 +346,12 @@ function createCup3DLayers() {
    UI Event Handlers & View Rendering
    ========================================== */
 document.addEventListener('DOMContentLoaded', () => {
+    // 3D 가속 상태 실시간 판별 가동
+    state.gpuAccelerated = isHardwareAccelerationEnabled();
+    if (!state.gpuAccelerated) {
+        console.warn("WebGL/GPU Hardware Acceleration disabled! 2D Fallback Glassmorphism mode activated.");
+    }
+
     setupLobbyEvents();
     setupGameEvents();
     initializeDiceStage();
@@ -887,6 +894,46 @@ function setupGameEvents() {
     });
 }
 
+// WebGL 및 렌더러 테스트 기반 실시간 GPU 그래픽 하드웨어 가속 감지기 (방법 A)
+function isHardwareAccelerationEnabled() {
+    try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (!gl) return false;
+        
+        // SwiftShader 등 소프트웨어 렌더러인 경우 하드웨어 가속 미지원으로 간주하여 2D로 격하
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        if (debugInfo) {
+            const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
+            if (renderer.toLowerCase().includes('swiftshader') || 
+                renderer.toLowerCase().includes('software rendering') ||
+                renderer.toLowerCase().includes('llvmpipe')) {
+                return false;
+            }
+        }
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// 2D 폴백 주사위 전용 눈금 Grid 마크업 생성기 (기존 3D CSS Grid 레이아웃 재사용으로 완벽 일치)
+function get2DDiceMarkup(value) {
+    const pipMarkup = '<span class="pip"></span>';
+    let pips = '';
+    
+    if (value === 1) {
+        pips = '<span class="pip"></span>'; // 1번 루비 빨강 눈
+    } else {
+        for (let k = 0; k < value; k++) {
+            pips += pipMarkup;
+        }
+    }
+    
+    const faceClass = ['front', 'back', 'right', 'left', 'top', 'bottom'][value - 1] || 'front';
+    return `<div class="face ${faceClass}" style="position:static; width:100%; height:100%; border:none; box-shadow:none; border-radius:14px; background:none;">${pips}</div>`;
+}
+
 /* ==========================================
    2D Elastic Collision Physics Engine (JS Math)
    ========================================== */
@@ -1343,7 +1390,7 @@ function initializeDiceStage() {
         slot.className = 'dice-slot';
         slot.dataset.index = i;
         slot.innerHTML = `
-            <div class="dice-3d">
+            <div class="dice-3d" id="dice-3d-${i}">
                 <div class="cube" id="cube-${i}">
                     <div class="face front"><span class="pip"></span></div>
                     <div class="face back">
@@ -1369,6 +1416,8 @@ function initializeDiceStage() {
                     </div>
                 </div>
             </div>
+            <!-- 2D 평면 폴백 레이어 추가 -->
+            <div class="dice-2d" id="dice-2d-${i}"></div>
             <span class="keep-badge">KEEP</span>
         `;
         
@@ -1606,6 +1655,20 @@ function renderDice() {
         const slot = slots[i];
         if (!slot) return;
         const cube = document.getElementById(`cube-${i}`);
+        const dice3d = document.getElementById(`dice-3d-${i}`);
+        const dice2d = document.getElementById(`dice-2d-${i}`);
+        
+        // [방법 A] 하드웨어 가속 상태에 따른 2D 폴백 / 3D 그래픽 실시간 스위칭 및 2D 눈금 투영
+        if (state.gpuAccelerated) {
+            if (dice3d) dice3d.style.display = 'block';
+            if (dice2d) dice2d.style.display = 'none';
+        } else {
+            if (dice3d) dice3d.style.display = 'none';
+            if (dice2d) {
+                dice2d.style.display = 'flex';
+                dice2d.innerHTML = get2DDiceMarkup(d.value);
+            }
+        }
         
         // Render kept badge and styling
         if (d.kept) {
